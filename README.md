@@ -1,6 +1,6 @@
 # Dynamic Memory Networks
 
-## To run in virtualenv:
+## To run in virtualenv
 
 ```bash
 sudo pip install virtualenv      # This may already be installed
