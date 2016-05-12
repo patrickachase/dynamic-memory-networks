@@ -84,7 +84,15 @@ def run_baseline():
     # Add placeholders
     input_placeholder, question_placeholder, labels_placeholder = add_placeholders()
 
-    # Initialize models
+    # Initialize input model
+
+    # Initialize question model
+
+    # Initialize answer model
+
+    # Compute loss
+
+    # Add optimizer
 
     # Create feed dicts with inputs
 
