@@ -13,6 +13,7 @@ from tensorflow.python.ops.seq2seq import sequence_loss
 
 #### MODEL PARAMETERS ####
 
+TRAINING_SPLIT = 0.8
 
 #### END MODEL PARAMETERS ####
 
@@ -23,7 +24,7 @@ def split_training_data(train_total):
     np.random.seed(9265)
 
     np.random.shuffle(train_total)
-    split_index = int(len(train_total)*0.8)
+    split_index = int(len(train_total)*TRAINING_SPLIT)
 
     train = train_total[:split_index]
     dev = train_total[split_index:]
