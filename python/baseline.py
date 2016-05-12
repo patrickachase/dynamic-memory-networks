@@ -46,5 +46,15 @@ def run_baseline():
     print "Validation samples: {}".format(len(validation))
     print "Testing samples: {}".format(len(test))
 
+    # Get glove vectors
+
+    # Initialize models
+
+    # Create feed dicts with inputs
+
+    # Train over multiple epochs
+
+    # Test
+
 if __name__ == "__main__":
     run_baseline()
