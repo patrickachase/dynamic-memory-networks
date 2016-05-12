@@ -1,4 +1,3 @@
 .env/
-data/glove.6B
-*.DS_Store
-.DS_Store
+.idea/
+**/.DS_Store
