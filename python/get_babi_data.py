@@ -3,10 +3,18 @@ import re
 
 # Functions to load babi dataset
 
-# Returns a list of (input, question, answer) tuples
+# Returns a list of (input, question, answer) tuples for the training set
 def get_task_1_train():
+    return get_babi_dataset('../data/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_train.txt')
+
+# Returns a list of (input, question, answer) tuples for the training set
+def get_task_1_test():
+    return get_babi_dataset('../data/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_test.txt')
+
+# Returns a list of (input, question, answer) tuples
+def get_babi_dataset(path):
     print "Loading babi data"
-    babi_data_path = '../data/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_train.txt'
+    babi_data_path = path
 
     babi_data = open(babi_data_path).read()
     lines = data_to_list(babi_data)
@@ -62,8 +70,3 @@ def data_to_list(data):
     """
     split_lines = data.split('\n')[:-1]
     return [line.decode('utf-8').strip() for line in split_lines]
-
-
-data = get_task_1_train()
-
-print data
