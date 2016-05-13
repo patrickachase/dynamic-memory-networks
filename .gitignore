@@ -2,3 +2,5 @@
 .idea/
 **/.DS_Store
 *.pyc
+data/glove/
+data/glove.6B.zip*
