@@ -11,6 +11,14 @@ def get_task_1_train():
 def get_task_1_test():
     return get_babi_dataset('../data/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_test.txt')
 
+# Returns a list of (input, question, answer) tuples for the training set
+def get_task_6_train():
+    return get_babi_dataset('../data/babi/tasks_1-20_v1-2/en-10k/qa6_yes-no-questions_train.txt')
+
+# Returns a list of (input, question, answer) tuples for the training set
+def get_task_6_test():
+    return get_babi_dataset('../data/babi/tasks_1-20_v1-2/en-10k/qa6_yes-no-questions_test.txt')
+
 # Returns a list of (input, question, answer) tuples
 def get_babi_dataset(path):
     print "Loading babi data"
