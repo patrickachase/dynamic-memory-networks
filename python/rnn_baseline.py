@@ -18,10 +18,11 @@ from format_data import split_training_data
 from format_data import format_data
 #### MODEL PARAMETERS ####
 
+TRAINING_SPLIT = 0.8
 WORD_VECTOR_LENGTH = 50
 VOCAB_LENGTH = 10000
-NUM_CLASSES = 2
 LEARNING_RATE = 0.001
+NUM_CLASSES = 2
 NUM_EPOCHS = 2
 HIDDEN_SIZE = 25
 EARLY_STOPPING = 2
@@ -29,7 +30,6 @@ MAX_INPUT_LENGTH = 40
 MAX_EPOCHS = 10
 
 #### END MODEL PARAMETERS ####
-
 
 def add_placeholders():
   """Generate placeholder variables to represent the input tensors
@@ -62,8 +62,7 @@ def add_placeholders():
   labels_placeholder = tf.placeholder(tf.float32, shape=[None, NUM_CLASSES])
   return input_placeholder, question_placeholder, labels_placeholder
 
-
-def RNN(X, initial_state, W_hidden, b_hidden, W_out, b_out, num_words_in_X):
+def RNN(X, W_hidden, b_hidden, W_out, b_out, num_words_in_X):
   # Reshape `X` as a vector. -1 means "set this dimension automatically".
   X_as_vector = tf.reshape(X, [-1])
 
@@ -96,6 +95,12 @@ def RNN(X, initial_state, W_hidden, b_hidden, W_out, b_out, num_words_in_X):
   output, state = rnn.rnn(lstm_cell, X, dtype=tf.float32)
 
   return output[-1]
+
+
+def accuracy(y, yhat):
+  """ Precision for classifier """
+  assert (y.shape == yhat.shape)
+  return np.sum(y == yhat) * 100.0 / y.size
 
 
 def run_baseline():
@@ -132,24 +137,24 @@ def run_baseline():
     W_out = tf.get_variable("W_out", shape=(HIDDEN_SIZE, NUM_CLASSES))
     b_out = tf.get_variable("b_out", shape=(1, NUM_CLASSES))
 
-  # TODO should the initial state be a placeholder?
-  initial_state = np.zeros([1,HIDDEN_SIZE])
+  # Initialize question model
 
-  final_state = RNN(input_placeholder, initial_state, W_hidden, b_hidden, W_out, b_out, input_length)
+  # Initialize answer model
+
+  final_state = RNN(input_placeholder, W_hidden, b_hidden, W_out, b_out, input_length)
 
   print "Final state: \n\n"
   print final_state
 
   print W_out
   print b_out
-  pred = tf.nn.softmax(tf.matmul(final_state, W_out) + b_out)
+  prediction_probs = tf.nn.softmax(tf.matmul(final_state, W_out) + b_out)
 
-  # Initialize question model
-
-  # Initialize answer model
+  # TODO should this be 1 for batches
+  prediction = tf.argmax(prediction_probs, 1)
 
   # Compute loss
-  cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(pred, labels_placeholder))
+  cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(prediction_probs, labels_placeholder))
 
   # Add optimizer
   optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE).minimize(cost)
@@ -172,6 +177,7 @@ def run_baseline():
       ###
 
       total_training_loss = 0
+      num_correct = 0
       # Compute average loss on training data
       for i in range(len(train)):
         # print answer_train[i]
@@ -181,19 +187,32 @@ def run_baseline():
         #
         # print input_placeholder
         # print np.shape(text_train[i])
-        loss, _ = sess.run([cost, optimizer], feed_dict={input_placeholder: text_train[i], question_placeholder: question_train[i], labels_placeholder: answer_train[i]})
+        loss, currentPred, probs, _ = sess.run([cost, prediction, prediction_probs, optimizer],
+                                               feed_dict={input_placeholder: text_train[i], question_placeholder: question_train[i],
+                                                          labels_placeholder: answer_train[i]})
+
+        print "Current pred probs: {}".format(probs)
+        print "Current pred: {}".format(currentPred)
+        print "Current answer: {}".format(np.argmax(answer_train[i]))
+
+        if currentPred == np.argmax(answer_train[i]):
+          num_correct = num_correct + 1
+
         total_training_loss = total_training_loss + loss
 
       average_training_loss = total_training_loss / len(train)
+      training_accuracy = num_correct / len(train)
 
-      # TODO Compute average loss on validation set
       validation_loss = float('inf')
 
       total_validation_loss = 0
       # Compute average loss on validation data
       for i in range(len(validation)):
+        loss, currentPred, _ = sess.run([cost, pred, optimizer], feed_dict={input_placeholder: text_val[i],
+                                                                            question_placeholder: question_val[i],
+                                                                            labels_placeholder: answer_val[i]})
 
-        loss, _ = sess.run([cost, optimizer], feed_dict={input_placeholder: text_val[i], question_placeholder: question_val[i], labels_placeholder: answer_val[i]})
+
         total_validation_loss = total_validation_loss + loss
 
       average_validation_loss = total_validation_loss / len(validation)
@@ -203,13 +222,13 @@ def run_baseline():
       if validation_loss < best_loss:
         best_loss = validation_loss
         best_val_epoch = epoch
-        saver.save(sess, './weights/rnn.weights')
+        saver.save(sess, '../data/weights/rnn.weights')
       if epoch - best_val_epoch > EARLY_STOPPING:
         break
       print 'Total time: {}'.format(time.time() - start)
 
   # Compute average loss on testing data with best weights
-  saver.restore(sess, './weights/rnn.weights')
+  saver.restore(sess, '../data/weights/rnn.weights')
 
   sess.run(accuracy,
            feed_dict={input_placeholder: text_val, labels_placeholder: answer_val,
