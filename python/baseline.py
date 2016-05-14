@@ -149,7 +149,8 @@ def RNN(X, initial_state, W_hidden, b_hidden, W_out, b_out, num_words_in_X):
   print state
   print num_words_in_X
   # TODO add termination at num_steps back in with sequence_length parameter
-  output, state = rnn.rnn(lstm_cell, X, initial_state=state, dtype=tf.float32)
+  # TODO add back initial state
+  output, state = rnn.rnn(lstm_cell, X, dtype=tf.float32)
 
   return output[-1]
 
@@ -238,7 +239,7 @@ def run_baseline():
         print input_placeholder
         print np.shape(text_train[i])
         cost = sess.run(optimizer, feed_dict={input_placeholder: text_train[i], question_placeholder: question_train[i], labels_placeholder: answer_train[i]})
-        training_loss = training_loss + cost
+        total_training_loss = total_training_loss + cost
 
       average_training_loss = total_training_loss / len(train)
 
