@@ -109,9 +109,13 @@ def format_data(data, glove_dict):
 
     # convert answer to a onehot vector
     if answer == 'yes':
-      answer_arr.append([1, 0])
+      answer = np.array([1, 0])
+      answer = answer.reshape((1, NUM_CLASSES))
+      answer_arr.append(answer)
     else:
-      answer_arr.append([0, 1])
+      answer = np.array([0, 1])
+      answer = answer.reshape((1, NUM_CLASSES))
+      answer_arr.append(answer)
 
   return text_arr, question_arr, answer_arr
 
@@ -226,6 +230,8 @@ def run_baseline():
       total_training_loss = 0
       # Compute average loss on training data
       for i in range(len(train)):
+        print answer_train[i]
+        print np.shape(answer_train[i])
         cost = sess.run(optimizer, feed_dict={input_placeholder: text_train[i], labels_placeholder: answer_train[i]})
         training_loss = training_loss + cost
 
