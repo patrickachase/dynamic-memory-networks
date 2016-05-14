@@ -231,13 +231,13 @@ def run_baseline():
       total_training_loss = 0
       # Compute average loss on training data
       for i in range(len(train)):
-        print answer_train[i]
-        print np.shape(answer_train[i])
-
-        print labels_placeholder
-
-        print input_placeholder
-        print np.shape(text_train[i])
+        # print answer_train[i]
+        # print np.shape(answer_train[i])
+        #
+        # print labels_placeholder
+        #
+        # print input_placeholder
+        # print np.shape(text_train[i])
         loss, _ = sess.run([cost, optimizer], feed_dict={input_placeholder: text_train[i], question_placeholder: question_train[i], labels_placeholder: answer_train[i]})
         total_training_loss = total_training_loss + loss
 
@@ -246,8 +246,17 @@ def run_baseline():
       # TODO Compute average loss on validation set
       validation_loss = float('inf')
 
+      total_validation_loss = 0
+      # Compute average loss on validation data
+      for i in range(len(validation)):
+
+        loss, _ = sess.run([cost, optimizer], feed_dict={input_placeholder: text_val[i], question_placeholder: question_val[i], labels_placeholder: answer_val[i]})
+        total_validation_loss = total_validation_loss + loss
+
+      average_validation_loss = total_validation_loss / len(validation)
+
       print 'Training loss: {}'.format(average_training_loss)
-      print 'Validation loss: {}'.format(validation_loss)
+      print 'Validation loss: {}'.format(average_validation_loss)
       if validation_loss < best_loss:
         best_loss = validation_loss
         best_val_epoch = epoch
