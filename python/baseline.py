@@ -26,7 +26,7 @@ NUM_EPOCHS = 2
 HIDDEN_SIZE = 25
 EARLY_STOPPING = 2
 MAX_INPUT_LENGTH = 40
-
+MAX_EPOCHS = 10
 
 #### END MODEL PARAMETERS ####
 
@@ -72,7 +72,7 @@ def add_placeholders():
   # TODO figure out what shapes these should be exactly
   input_placeholder = tf.placeholder(tf.float32, shape=[None, WORD_VECTOR_LENGTH])
   question_placeholder = tf.placeholder(tf.float32, shape=[None, WORD_VECTOR_LENGTH])
-  labels_placeholder = tf.placeholder(tf.int32, shape=[None, NUM_CLASSES])
+  labels_placeholder = tf.placeholder(tf.float32, shape=[None, NUM_CLASSES])
   return input_placeholder, question_placeholder, labels_placeholder
 
 
@@ -144,10 +144,10 @@ def RNN(X, initial_state, W_hidden, b_hidden, W_out, b_out, num_words_in_X):
   print X
   print state
   print num_words_in_X
-  # TODO add input state back in
-  output, state = rnn.rnn(lstm_cell, X, initial_state=state, sequence_length=num_words_in_X, dtype=tf.float32)
+  # TODO add termination at num_steps back in with sequence_length parameter
+  output, state = rnn.rnn(lstm_cell, X, initial_state=state, dtype=tf.float32)
 
-  return state
+  return output[-1]
 
 
 def run_baseline():
@@ -189,6 +189,11 @@ def run_baseline():
 
   final_state = RNN(input_placeholder, initial_state, W_hidden, b_hidden, W_out, b_out, input_length)
 
+  print "Final state: \n\n"
+  print final_state
+
+  print W_out
+  print b_out
   pred = tf.nn.softmax(tf.matmul(final_state, W_out) + b_out)
 
   # Initialize question model
@@ -196,7 +201,7 @@ def run_baseline():
   # Initialize answer model
 
   # Compute loss
-  cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(pred, y))
+  cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(pred, labels_placeholder))
 
   # Add optimizer
   optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE).minimize(cost)
@@ -221,8 +226,7 @@ def run_baseline():
       total_training_loss = 0
       # Compute average loss on training data
       for i in range(len(train)):
-        cost = sess.run(optimizer, feed_dict={input_placeholder: text_train[i], labels_placeholder: answer_train[i],
-                                              initial_state: np.zeros(HIDDEN_SIZE)})
+        cost = sess.run(optimizer, feed_dict={input_placeholder: text_train[i], labels_placeholder: answer_train[i]})
         training_loss = training_loss + cost
 
       average_training_loss = total_training_loss / len(train)
