@@ -23,9 +23,9 @@ VOCAB_LENGTH = 10000
 LEARNING_RATE = 0.001
 NUM_CLASSES = 2
 NUM_EPOCHS = 2
-HIDDEN_SIZE = 50
+HIDDEN_SIZE = 25
 EARLY_STOPPING = 2
-MAX_INPUT_LENGTH = 500
+MAX_INPUT_LENGTH = 40
 
 
 #### END MODEL PARAMETERS ####
@@ -134,10 +134,13 @@ def RNN(X, initial_state, W_hidden, b_hidden, W_out, b_out, num_words_in_X):
   # TODO change input to be a list of tensors of length MAX_INPUT_LENGTH where each tensor is a BATCH_SIZExWORD_VECTOR_LENGTH vector
   X = tf.split(0, MAX_INPUT_LENGTH, X_padded)
 
-  lstm_cell = rnn_cell.BasicLSTMCell(HIDDEN_SIZE)
+  lstm_cell = rnn_cell.LSTMCell(num_units=HIDDEN_SIZE, input_size=WORD_VECTOR_LENGTH)
 
   # Compute final state after feeding in word vectors
   state = tf.zeros([1, HIDDEN_SIZE])
+
+  # Print out all input tensors
+  print "Tensors: \n\n"
   print X
   print state
   print num_words_in_X
@@ -182,7 +185,8 @@ def run_baseline():
     b_out = tf.get_variable("b_out", shape=(1, NUM_CLASSES))
 
   # TODO should the initial state be a placeholder?
-  initial_state = np.zeros(HIDDEN_SIZE)
+  initial_state = np.zeros([1,HIDDEN_SIZE])
+
   final_state = RNN(input_placeholder, initial_state, W_hidden, b_hidden, W_out, b_out, input_length)
 
   pred = tf.nn.softmax(tf.matmul(final_state, W_out) + b_out)
