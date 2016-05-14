@@ -232,7 +232,12 @@ def run_baseline():
       for i in range(len(train)):
         print answer_train[i]
         print np.shape(answer_train[i])
-        cost = sess.run(optimizer, feed_dict={input_placeholder: text_train[i], labels_placeholder: answer_train[i]})
+
+        print labels_placeholder
+
+        print input_placeholder
+        print np.shape(text_train[i])
+        cost = sess.run(optimizer, feed_dict={input_placeholder: text_train[i], question_placeholder: question_train[i], labels_placeholder: answer_train[i]})
         training_loss = training_loss + cost
 
       average_training_loss = total_training_loss / len(train)
