@@ -70,8 +70,8 @@ def add_placeholders():
   """
 
   # TODO figure out what shapes these should be exactly
-  input_placeholder = tf.placeholder(tf.int32, shape=[None, WORD_VECTOR_LENGTH])
-  question_placeholder = tf.placeholder(tf.int32, shape=[None, WORD_VECTOR_LENGTH])
+  input_placeholder = tf.placeholder(tf.float32, shape=[None, WORD_VECTOR_LENGTH])
+  question_placeholder = tf.placeholder(tf.float32, shape=[None, WORD_VECTOR_LENGTH])
   labels_placeholder = tf.placeholder(tf.int32, shape=[None, NUM_CLASSES])
   return input_placeholder, question_placeholder, labels_placeholder
 
@@ -117,20 +117,34 @@ def format_data(data, glove_dict):
 
 
 def RNN(X, initial_state, W_hidden, b_hidden, W_out, b_out, num_words_in_X):
+  # Reshape `X` as a vector. -1 means "set this dimension automatically".
+  X_as_vector = tf.reshape(X, [-1])
 
-  # TODO Add padding to input to have MAX_INPUT_LENGTH
+  # Create another vector containing zeroes to pad `X` to (MAX_INPUT_LENGTH * WORD_VECTOR_LENGTH) elements.
+  zero_padding = tf.zeros([MAX_INPUT_LENGTH * WORD_VECTOR_LENGTH] - tf.shape(X_as_vector), dtype=X.dtype)
 
-  X = tf.split(0, MAX_INPUT_LENGTH, X)
+  # Concatenate `X_as_vector` with the padding.
+  X_padded_as_vector = tf.concat(0, [X_as_vector, zero_padding])
 
-  state = initial_state
+  # Reshape the padded vector to the desired shape.
+  X_padded = tf.reshape(X_padded_as_vector, [MAX_INPUT_LENGTH, WORD_VECTOR_LENGTH])
+
+  # Split X into a list of tensors of length MAX_INPUT_LENGTH where each tensor is a 1xWORD_VECTOR_LENGTH vector
+  # of the word vectors
+  # TODO change input to be a list of tensors of length MAX_INPUT_LENGTH where each tensor is a BATCH_SIZExWORD_VECTOR_LENGTH vector
+  X = tf.split(0, MAX_INPUT_LENGTH, X_padded)
+
   lstm_cell = rnn_cell.BasicLSTMCell(HIDDEN_SIZE)
 
+  # Compute final state after feeding in word vectors
+  state = tf.zeros([1, HIDDEN_SIZE])
   print X
-  for i in xrange(len(X)):
-    x_scaled = tf.matmul(X[i], W_hidden) + b_hidden
-    output, state = lstm_cell(lstm_cell, x_scaled, initial_state=state, early_stopping=num_words_in_X)
+  print state
+  print num_words_in_X
+  # TODO add input state back in
+  output, state = rnn.rnn(lstm_cell, X, initial_state=state, sequence_length=num_words_in_X, dtype=tf.float32)
 
-  return tf.matmul(output, W_out) + b_out
+  return state
 
 
 def run_baseline():
@@ -163,13 +177,15 @@ def run_baseline():
   # Initialize input model
   with tf.variable_scope("text"):
     W_hidden = tf.get_variable("W_hidden", shape=(WORD_VECTOR_LENGTH, HIDDEN_SIZE))
-    b_hidden = tf.get_variable("b_hidden", shape=(HIDDEN_SIZE, 1))
+    b_hidden = tf.get_variable("b_hidden", shape=(1, HIDDEN_SIZE))
     W_out = tf.get_variable("W_out", shape=(HIDDEN_SIZE, NUM_CLASSES))
-    b_out = tf.get_variable("b_out", shape=(NUM_CLASSES, 1))
+    b_out = tf.get_variable("b_out", shape=(1, NUM_CLASSES))
 
   # TODO should the initial state be a placeholder?
   initial_state = np.zeros(HIDDEN_SIZE)
-  pred = RNN(input_placeholder, initial_state, W_hidden, b_hidden, W_out, b_out, input_length)
+  final_state = RNN(input_placeholder, initial_state, W_hidden, b_hidden, W_out, b_out, input_length)
+
+  pred = tf.nn.softmax(tf.matmul(final_state, W_out) + b_out)
 
   # Initialize question model
 
