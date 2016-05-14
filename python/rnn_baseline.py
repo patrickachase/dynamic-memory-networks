@@ -14,14 +14,14 @@ from get_glove import load_glove_vectors
 from get_babi_data import get_task_1_train
 from get_babi_data import get_task_1_test
 from tensorflow.python.ops.seq2seq import sequence_loss
-
+from format_data import split_training_data
+from format_data import format_data
 #### MODEL PARAMETERS ####
 
-TRAINING_SPLIT = 0.8
 WORD_VECTOR_LENGTH = 50
 VOCAB_LENGTH = 10000
-LEARNING_RATE = 0.001
 NUM_CLASSES = 2
+LEARNING_RATE = 0.001
 NUM_EPOCHS = 2
 HIDDEN_SIZE = 25
 EARLY_STOPPING = 2
@@ -29,19 +29,6 @@ MAX_INPUT_LENGTH = 40
 MAX_EPOCHS = 10
 
 #### END MODEL PARAMETERS ####
-
-def split_training_data(train_total):
-  # Set seed for consistent splitting
-  random.seed(31415)
-  np.random.seed(9265)
-
-  np.random.shuffle(train_total)
-  split_index = int(len(train_total) * TRAINING_SPLIT)
-
-  train = train_total[:split_index]
-  dev = train_total[split_index:]
-
-  return train, dev
 
 
 def add_placeholders():
@@ -74,50 +61,6 @@ def add_placeholders():
   question_placeholder = tf.placeholder(tf.float32, shape=[None, WORD_VECTOR_LENGTH])
   labels_placeholder = tf.placeholder(tf.float32, shape=[None, NUM_CLASSES])
   return input_placeholder, question_placeholder, labels_placeholder
-
-
-# Takes in the data set with (input, question, answer) tuplets and the dictionary of glove
-# vectors and returns the word vectors for the input, question, and answer.
-def format_data(data, glove_dict):
-  text_arr = []
-  question_arr = []
-  answer_arr = []
-  for (text, question, answer) in data:
-    # convert word array to word vector array for text
-    text_vec = []
-    for word in text:
-      if word in glove_dict:
-        wordvec = glove_dict[word]
-      else:
-        wordvec = np.random.rand(1, WORD_VECTOR_LENGTH)[0]
-        wordvec /= np.sum(wordvec)
-      text_vec.append(wordvec)
-
-    question_arr.append(text_vec)
-
-    # convert word array to word vector array for question
-    question_vec = []
-    for word in question:
-      if word in glove_dict:
-        wordvec = glove_dict[word]
-      else:
-        wordvec = np.random.rand(1, WORD_VECTOR_LENGTH)[0]
-        wordvec /= np.sum(wordvec)
-      question_vec.append(wordvec)
-
-    text_arr.append(question_vec)
-
-    # convert answer to a onehot vector
-    if answer == 'yes':
-      answer = np.array([1, 0])
-      answer = answer.reshape((1, NUM_CLASSES))
-      answer_arr.append(answer)
-    else:
-      answer = np.array([0, 1])
-      answer = answer.reshape((1, NUM_CLASSES))
-      answer_arr.append(answer)
-
-  return text_arr, question_arr, answer_arr
 
 
 def RNN(X, initial_state, W_hidden, b_hidden, W_out, b_out, num_words_in_X):
