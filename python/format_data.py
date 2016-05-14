@@ -54,10 +54,10 @@ def format_data(data, glove_dict):
     if answer == 'yes':
       answer = np.array([1, 0])
       answer = answer.reshape((1, NUM_CLASSES))
-      answer_arr.append(answer)
+      answer_arr.append(answer[0])
     else:
       answer = np.array([0, 1])
       answer = answer.reshape((1, NUM_CLASSES))
-      answer_arr.append(answer)
+      answer_arr.append(answer[0])
 
   return text_arr, question_arr, answer_arr

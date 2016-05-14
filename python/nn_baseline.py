@@ -7,49 +7,28 @@ import numpy as np
 from get_babi_data import get_task_6_train
 from get_babi_data import get_task_6_test
 from get_glove import load_glove_vectors
+from format_data import split_training_data
+from format_data import format_data
 
-# Takes in the data set with (input, question, answer) tuplets and the dictionary of glove
-# vectors and returns the word vectors for the input, question, and answer.
-def format_data(data, glove_dict):
-  text_arr = []
-  question_arr = []
-  answer_arr = []
-  for (text, question, answer) in data:
-    # convert word array to word vector array for text
-    text_vec = []
-    for word in text:
-      if word in glove_dict:
-        wordvec = glove_dict[word]
-      else:
-        wordvec = np.random.rand(1, WORD_VECTOR_LENGTH)[0]
-        wordvec /= np.sum(wordvec)
-      text_vec.append(wordvec)
+WORD_VECTOR_LENGTH = 50
+NUM_CLASSES = 2
 
-    question_arr.append(text_vec)
+def sum_wordvecs(text_vec, question_vec):
+    data = []
 
-    # convert word array to word vector array for question
-    question_vec = []
-    for word in question:
-      if word in glove_dict:
-        wordvec = glove_dict[word]
-      else:
-        wordvec = np.random.rand(1, WORD_VECTOR_LENGTH)[0]
-        wordvec /= np.sum(wordvec)
-      question_vec.append(wordvec)
+    for i in xrange(len(text_vec)):
+        text_sum = np.zeros((1, WORD_VECTOR_LENGTH))
+        for word in text_vec[i]:
+            text_sum += word
 
-    text_arr.append(question_vec)
+        question_sum = np.zeros((1, WORD_VECTOR_LENGTH))
+        for word in question_vec[i]:
+            question_sum += word
 
-    # convert answer to a onehot vector
-    if answer == 'yes':
-      answer = np.array([1, 0])
-      answer = answer.reshape((1, NUM_CLASSES))
-      answer_arr.append(answer)
-    else:
-      answer = np.array([0, 1])
-      answer = answer.reshape((1, NUM_CLASSES))
-      answer_arr.append(answer)
+        concat_vec = np.concatenate((text_sum, question_sum), 1)
+        data.append(concat_vec[0])
 
-  return text_arr, question_arr, answer_arr
+    return data
 
 def nn(X_train, y_train, X_test, y_test):
     print X_train.shape
@@ -58,33 +37,41 @@ def nn(X_train, y_train, X_test, y_test):
     print y_test.shape
 
     batch_size = 32
-    nb_epoch = 200
+    nb_epoch = 50
     data_augmentation = True
 
     model = Sequential()
-    model.add(Dense(200, input_dim=22,activation='relu'))
+    model.add(Dense(200, input_dim=2*WORD_VECTOR_LENGTH,activation='relu'))
     model.add(Dense(200, activation='relu'))
-    model.add(Dense(200, activation='relu'))
-    model.add(Dense(200, activation='relu'))
-    model.add(Dense(1))
-    model.compile(loss='mse', optimizer='adam')
+    model.add(Dense(NUM_CLASSES))
+    model.add(Activation('softmax'))
+    model.compile(loss='categorical_crossentropy', optimizer='adam')
 
     model.fit(X_train, y_train,
               nb_epoch=nb_epoch, batch_size=batch_size,
               validation_data=(X_test, y_test))
 
 def main():
-    print "test"
-    train_data, train_labels = format_data()
-    print "train data loaded"
-    test_data, test_labels = readData('val.csv')
-    print "test data loaded"
+    # Get train dataset for task 6
+    train_total = get_task_6_train()
+    train, validation = split_training_data(train_total)
 
+    # Get word to glove vectors dictionary
+    glove_dict = load_glove_vectors()
+
+    # Get data into word vector format
+    text_train, question_train, train_labels = format_data(train, glove_dict)
+    text_val, question_val, val_labels = format_data(validation, glove_dict)
+
+    train_data = sum_wordvecs(text_train, question_train)
+    val_data = sum_wordvecs(text_val, question_val)
+
+    print "data loaded"
 
     X_train = np.array(train_data)
     y_train = np.array(train_labels)
-    X_test = np.array(test_data)
-    y_test = np.array(test_labels)
+    X_test = np.array(val_data)
+    y_test = np.array(val_labels)
 
     nn(X_train, y_train, X_test, y_test)
 
