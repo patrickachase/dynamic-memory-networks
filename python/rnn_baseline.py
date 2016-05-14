@@ -16,6 +16,7 @@ from get_babi_data import get_task_1_test
 from tensorflow.python.ops.seq2seq import sequence_loss
 from format_data import split_training_data
 from format_data import format_data
+
 #### MODEL PARAMETERS ####
 
 TRAINING_SPLIT = 0.8
@@ -28,6 +29,8 @@ HIDDEN_SIZE = 25
 EARLY_STOPPING = 2
 MAX_INPUT_LENGTH = 40
 MAX_EPOCHS = 10
+BATCH_SIZE = 1
+
 
 #### END MODEL PARAMETERS ####
 
@@ -58,9 +61,11 @@ def add_placeholders():
 
   # TODO figure out what shapes these should be exactly
   input_placeholder = tf.placeholder(tf.float32, shape=[None, WORD_VECTOR_LENGTH])
+  input_length_placeholder = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
   question_placeholder = tf.placeholder(tf.float32, shape=[None, WORD_VECTOR_LENGTH])
   labels_placeholder = tf.placeholder(tf.float32, shape=[None, NUM_CLASSES])
-  return input_placeholder, question_placeholder, labels_placeholder
+  return input_placeholder, input_length_placeholder, question_placeholder, labels_placeholder,
+
 
 def RNN(X, W_hidden, b_hidden, W_out, b_out, num_words_in_X):
   # Reshape `X` as a vector. -1 means "set this dimension automatically".
@@ -92,7 +97,7 @@ def RNN(X, W_hidden, b_hidden, W_out, b_out, num_words_in_X):
   print num_words_in_X
   # TODO add termination at num_steps back in with sequence_length parameter
   # TODO add back initial state
-  output, state = rnn.rnn(lstm_cell, X, dtype=tf.float32)
+  output, state = rnn.rnn(lstm_cell, X, sequence_length=num_words_in_X, dtype=tf.float32)
 
   return output[-1]
 
@@ -126,9 +131,7 @@ def run_baseline():
   text_test, question_test, answer_test = format_data(test, glove_dict)
 
   # Add placeholders
-  input_placeholder, question_placeholder, labels_placeholder = add_placeholders()
-
-  input_length = tf.shape(input_placeholder)[0]
+  input_placeholder, input_length_placeholder, question_placeholder, labels_placeholder, = add_placeholders()
 
   # Initialize input model
   with tf.variable_scope("text"):
@@ -141,7 +144,7 @@ def run_baseline():
 
   # Initialize answer model
 
-  final_state = RNN(input_placeholder, W_hidden, b_hidden, W_out, b_out, input_length)
+  final_state = RNN(input_placeholder, W_hidden, b_hidden, W_out, b_out, input_length_placeholder)
 
   print "Final state: \n\n"
   print final_state
@@ -150,7 +153,6 @@ def run_baseline():
   print b_out
   prediction_probs = tf.nn.softmax(tf.matmul(final_state, W_out) + b_out)
 
-  # TODO should this be 1 for batches
   prediction = tf.argmax(prediction_probs, 1)
 
   # Compute loss
@@ -187,9 +189,13 @@ def run_baseline():
         #
         # print input_placeholder
         # print np.shape(text_train[i])
+        # Must be [BATCH_SIZE,
+        num_words_in_inputs = [np.shape(answer_train[i])[0]]
         loss, currentPred, probs, _ = sess.run([cost, prediction, prediction_probs, optimizer],
-                                               feed_dict={input_placeholder: text_train[i], question_placeholder: question_train[i],
-                                                          labels_placeholder: answer_train[i]})
+                                               feed_dict={input_placeholder: text_train[i],
+                                                          question_placeholder: question_train[i],
+                                                          labels_placeholder: answer_train[i],
+                                                          input_length_placeholder: num_words_in_inputs})
 
         print "Current pred probs: {}".format(probs)
         print "Current pred: {}".format(currentPred)
@@ -211,7 +217,6 @@ def run_baseline():
         loss, currentPred, _ = sess.run([cost, pred, optimizer], feed_dict={input_placeholder: text_val[i],
                                                                             question_placeholder: question_val[i],
                                                                             labels_placeholder: answer_val[i]})
-
 
         total_validation_loss = total_validation_loss + loss
 
