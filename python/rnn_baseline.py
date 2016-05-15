@@ -70,7 +70,7 @@ def add_placeholders():
   return input_placeholder, input_length_placeholder, question_placeholder, labels_placeholder,
 
 
-def RNN(X, W_hidden, b_hidden, W_out, b_out, num_words_in_X):
+def RNN(X, num_words_in_X):
   # Reshape `X` as a vector. -1 means "set this dimension automatically".
   X_as_vector = tf.reshape(X, [-1])
 
@@ -147,8 +147,6 @@ def run_baseline():
 
   # Initialize input model
   with tf.variable_scope("text"):
-    W_hidden = tf.get_variable("W_hidden", shape=(WORD_VECTOR_LENGTH, HIDDEN_SIZE))
-    b_hidden = tf.get_variable("b_hidden", shape=(1, HIDDEN_SIZE))
     W_out = tf.get_variable("W_out", shape=(HIDDEN_SIZE, NUM_CLASSES))
     b_out = tf.get_variable("b_out", shape=(1, NUM_CLASSES))
 
@@ -156,7 +154,7 @@ def run_baseline():
 
   # Initialize answer model
 
-  final_state = RNN(input_placeholder, W_hidden, b_hidden, W_out, b_out, input_length_placeholder)
+  final_state = RNN(input_placeholder, input_length_placeholder)
 
   print "Final state: \n\n"
   print final_state
