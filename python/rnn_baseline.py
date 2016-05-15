@@ -31,6 +31,9 @@ MAX_INPUT_LENGTH = 40
 MAX_EPOCHS = 10
 BATCH_SIZE = 1
 
+# Number of training elements to train on before an update is printed
+UPDATE_LENGTH = 100
+
 
 #### END MODEL PARAMETERS ####
 
@@ -101,12 +104,17 @@ def RNN(X, W_hidden, b_hidden, W_out, b_out, num_words_in_X):
 
   return output[-1]
 
+def count_positive_and_negative(answer_vecs):
 
-def accuracy(y, yhat):
-  """ Precision for classifier """
-  assert (y.shape == yhat.shape)
-  return np.sum(y == yhat) * 100.0 / y.size
+  num_positive = 0
+  for answer_vec in answer_vecs:
 
+    if answer_vec[0,0] == 1:
+      num_positive = num_positive + 1
+
+  num_negative = len(answer_vecs) - num_positive
+
+  return num_positive, num_negative
 
 def run_baseline():
   # Get train dataset for task 6
@@ -117,11 +125,6 @@ def run_baseline():
   # Get test dataset for task 6
   test = get_task_6_test()
 
-  # Print summary statistics
-  print "Training samples: {}".format(len(train))
-  print "Validation samples: {}".format(len(validation))
-  print "Testing samples: {}".format(len(test))
-
   # Get word to glove vectors dictionary
   glove_dict = load_glove_vectors()
 
@@ -129,6 +132,15 @@ def run_baseline():
   text_train, question_train, answer_train = format_data(train, glove_dict)
   text_val, question_val, answer_val = format_data(validation, glove_dict)
   text_test, question_test, answer_test = format_data(test, glove_dict)
+
+  num_positive_train, num_negative_train = count_positive_and_negative(answer_train)
+
+  # Print summary statistics
+  print "Training samples: {}".format(len(train))
+  print "Positive training samples: {}".format(num_positive_train)
+  print "Negative training samples: {}".format(num_negative_train)
+  print "Validation samples: {}".format(len(validation))
+  print "Testing samples: {}".format(len(test))
 
   # Add placeholders
   input_placeholder, input_length_placeholder, question_placeholder, labels_placeholder, = add_placeholders()
@@ -180,6 +192,9 @@ def run_baseline():
 
       total_training_loss = 0
       num_correct = 0
+
+      prev_prediction = 0
+
       # Compute average loss on training data
       for i in range(len(train)):
         # print answer_train[i]
@@ -191,39 +206,60 @@ def run_baseline():
         # print np.shape(text_train[i])
         # Must be [BATCH_SIZE,
         num_words_in_inputs = [np.shape(answer_train[i])[0]]
-        loss, currentPred, probs, _ = sess.run([cost, prediction, prediction_probs, optimizer],
+        loss, current_pred, probs, _ = sess.run([cost, prediction, prediction_probs, optimizer],
                                                feed_dict={input_placeholder: text_train[i],
                                                           question_placeholder: question_train[i],
                                                           labels_placeholder: answer_train[i],
                                                           input_length_placeholder: num_words_in_inputs})
 
-        print "Current pred probs: {}".format(probs)
-        print "Current pred: {}".format(currentPred)
-        print "Current answer: {}".format(np.argmax(answer_train[i]))
+        # print "Current pred probs: {}".format(probs)
+        # print "Current pred: {}".format(currentPred[0])
+        # print "Current answer: {}".format(np.argmax(answer_train[i]))
 
-        if currentPred == np.argmax(answer_train[i]):
+        if current_pred[0] == np.argmax(answer_train[i]):
           num_correct = num_correct + 1
+
+        # Print a training update
+        if i % UPDATE_LENGTH == 0:
+          print "Current average training loss: {}".format(total_training_loss / (i+1))
+          print "Current training accuracy: {}".format(float(num_correct) / (i+1))
 
         total_training_loss = total_training_loss + loss
 
+        # Check if prediction changed
+        if prev_prediction != current_pred[0]:
+          print "Prediction changed"
+
+        prev_prediction = current_pred[0]
+
       average_training_loss = total_training_loss / len(train)
-      training_accuracy = num_correct / len(train)
+      training_accuracy = float(num_correct) / len(train)
 
       validation_loss = float('inf')
 
       total_validation_loss = 0
+      num_correct_val = 0
       # Compute average loss on validation data
       for i in range(len(validation)):
-        loss, currentPred, _ = sess.run([cost, pred, optimizer], feed_dict={input_placeholder: text_val[i],
-                                                                            question_placeholder: question_val[i],
-                                                                            labels_placeholder: answer_val[i]})
+        num_words_in_inputs = [np.shape(answer_train[i])[0]]
+        loss, currentPred, probs, _ = sess.run([cost, prediction, prediction_probs, optimizer],
+                                               feed_dict={input_placeholder: text_val[i],
+                                                          question_placeholder: question_val[i],
+                                                          labels_placeholder: answer_val[i],
+                                                          input_length_placeholder: num_words_in_inputs})
+
+        if currentPred == np.argmax(answer_val[i]):
+          num_correct_val = num_correct_val + 1
 
         total_validation_loss = total_validation_loss + loss
 
       average_validation_loss = total_validation_loss / len(validation)
+      validation_accuracy = float(num_correct_val) / len(validation)
 
       print 'Training loss: {}'.format(average_training_loss)
+      print 'Training accuracy: {}'.format(training_accuracy)
       print 'Validation loss: {}'.format(average_validation_loss)
+      print 'Validation accuracy: {}'.format(validation_accuracy)
       if validation_loss < best_loss:
         best_loss = validation_loss
         best_val_epoch = epoch
