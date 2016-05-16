@@ -25,9 +25,11 @@ VOCAB_LENGTH = 10000
 LEARNING_RATE = 0.001
 NUM_CLASSES = 2
 NUM_EPOCHS = 2
-HIDDEN_SIZE = 25
+INPUT_HIDDEN_SIZE = 25
+QUESTION_HIDDEN_SIZE = 25
 EARLY_STOPPING = 2
-MAX_INPUT_LENGTH = 40
+MAX_INPUT_LENGTH = 200
+MAX_QUESTION_LENGTH = 100
 MAX_EPOCHS = 10
 BATCH_SIZE = 1
 
@@ -66,55 +68,54 @@ def add_placeholders():
   input_placeholder = tf.placeholder(tf.float32, shape=[None, WORD_VECTOR_LENGTH])
   input_length_placeholder = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
   question_placeholder = tf.placeholder(tf.float32, shape=[None, WORD_VECTOR_LENGTH])
+  question_length_placeholder = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
   labels_placeholder = tf.placeholder(tf.float32, shape=[None, NUM_CLASSES])
-  return input_placeholder, input_length_placeholder, question_placeholder, labels_placeholder,
+  return input_placeholder, input_length_placeholder, question_placeholder, question_length_placeholder, labels_placeholder
 
 
-def RNN(X, num_words_in_X):
+def RNN(X, num_words_in_X, hidden_size, max_input_size):
   # Reshape `X` as a vector. -1 means "set this dimension automatically".
   X_as_vector = tf.reshape(X, [-1])
 
   # Create another vector containing zeroes to pad `X` to (MAX_INPUT_LENGTH * WORD_VECTOR_LENGTH) elements.
-  zero_padding = tf.zeros([MAX_INPUT_LENGTH * WORD_VECTOR_LENGTH] - tf.shape(X_as_vector), dtype=X.dtype)
+  zero_padding = tf.zeros([max_input_size * WORD_VECTOR_LENGTH] - tf.shape(X_as_vector), dtype=X.dtype)
 
   # Concatenate `X_as_vector` with the padding.
   X_padded_as_vector = tf.concat(0, [X_as_vector, zero_padding])
 
   # Reshape the padded vector to the desired shape.
-  X_padded = tf.reshape(X_padded_as_vector, [MAX_INPUT_LENGTH, WORD_VECTOR_LENGTH])
+  X_padded = tf.reshape(X_padded_as_vector, [max_input_size, WORD_VECTOR_LENGTH])
 
   # Split X into a list of tensors of length MAX_INPUT_LENGTH where each tensor is a 1xWORD_VECTOR_LENGTH vector
   # of the word vectors
   # TODO change input to be a list of tensors of length MAX_INPUT_LENGTH where each tensor is a BATCH_SIZExWORD_VECTOR_LENGTH vector
-  X = tf.split(0, MAX_INPUT_LENGTH, X_padded)
+  X = tf.split(0, max_input_size, X_padded)
 
-  lstm_cell = rnn_cell.LSTMCell(num_units=HIDDEN_SIZE, input_size=WORD_VECTOR_LENGTH)
-
-  # Compute final state after feeding in word vectors
-  state = tf.zeros([1, HIDDEN_SIZE])
+  lstm_cell = rnn_cell.LSTMCell(num_units=hidden_size, input_size=WORD_VECTOR_LENGTH)
 
   # Print out all input tensors
   print "Tensors: \n\n"
   print X
-  print state
   print num_words_in_X
   # TODO add termination at num_steps back in with sequence_length parameter
   # TODO add back initial state
   output, state = rnn.rnn(lstm_cell, X, sequence_length=num_words_in_X, dtype=tf.float32)
 
+  # TODO figure out if we should return state
   return output[-1]
 
-def count_positive_and_negative(answer_vecs):
 
+def count_positive_and_negative(answer_vecs):
   num_positive = 0
   for answer_vec in answer_vecs:
 
-    if answer_vec[0,0] == 1:
+    if answer_vec[0, 0] == 1:
       num_positive = num_positive + 1
 
   num_negative = len(answer_vecs) - num_positive
 
   return num_positive, num_negative
+
 
 def run_baseline():
   # Get train dataset for task 6
@@ -143,25 +144,30 @@ def run_baseline():
   print "Testing samples: {}".format(len(test))
 
   # Add placeholders
-  input_placeholder, input_length_placeholder, question_placeholder, labels_placeholder, = add_placeholders()
+  input_placeholder, input_length_placeholder, question_placeholder, question_length_placeholder, labels_placeholder, = add_placeholders()
 
-  # Initialize input model
-  with tf.variable_scope("text"):
-    W_out = tf.get_variable("W_out", shape=(HIDDEN_SIZE, NUM_CLASSES))
+  # Initialize answer model
+  with tf.variable_scope("output"):
+    W_out = tf.get_variable("W_out", shape=(INPUT_HIDDEN_SIZE + QUESTION_HIDDEN_SIZE, NUM_CLASSES))
     b_out = tf.get_variable("b_out", shape=(1, NUM_CLASSES))
 
   # Initialize question model
 
-  # Initialize answer model
+  with tf.variable_scope("input"):
+    input_state = RNN(input_placeholder, input_length_placeholder, INPUT_HIDDEN_SIZE, MAX_INPUT_LENGTH)
 
-  final_state = RNN(input_placeholder, input_length_placeholder)
+  with tf.variable_scope("question"):
+    question_state = RNN(question_placeholder, question_length_placeholder, QUESTION_HIDDEN_SIZE, MAX_QUESTION_LENGTH)
+
+  input_and_question = tf.concat(1, [input_state, question_state])
 
   print "Final state: \n\n"
-  print final_state
+  print input_and_question
 
+  # Answer model
   print W_out
   print b_out
-  prediction_probs = tf.nn.softmax(tf.matmul(final_state, W_out) + b_out)
+  prediction_probs = tf.nn.softmax(tf.matmul(input_and_question, W_out) + b_out)
 
   prediction = tf.argmax(prediction_probs, 1)
 
@@ -203,12 +209,14 @@ def run_baseline():
         # print input_placeholder
         # print np.shape(text_train[i])
         # Must be [BATCH_SIZE,
-        num_words_in_inputs = [np.shape(answer_train[i])[0]]
+        num_words_in_inputs = [np.shape(text_train[i])[0]]
+        num_words_in_question = [np.shape(question_train[i])[0]]
         loss, current_pred, probs, _ = sess.run([cost, prediction, prediction_probs, optimizer],
-                                               feed_dict={input_placeholder: text_train[i],
-                                                          question_placeholder: question_train[i],
-                                                          labels_placeholder: answer_train[i],
-                                                          input_length_placeholder: num_words_in_inputs})
+                                                feed_dict={input_placeholder: text_train[i],
+                                                           input_length_placeholder: num_words_in_inputs,
+                                                           question_placeholder: question_train[i],
+                                                           question_length_placeholder: num_words_in_question,
+                                                           labels_placeholder: answer_train[i]})
 
         # print "Current pred probs: {}".format(probs)
         # print "Current pred: {}".format(currentPred[0])
@@ -219,8 +227,8 @@ def run_baseline():
 
         # Print a training update
         if i % UPDATE_LENGTH == 0:
-          print "Current average training loss: {}".format(total_training_loss / (i+1))
-          print "Current training accuracy: {}".format(float(num_correct) / (i+1))
+          print "Current average training loss: {}".format(total_training_loss / (i + 1))
+          print "Current training accuracy: {}".format(float(num_correct) / (i + 1))
 
         total_training_loss = total_training_loss + loss
 

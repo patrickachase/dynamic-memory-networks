@@ -26,6 +26,10 @@ def format_data(data, glove_dict):
   question_arr = []
   answer_arr = []
   for (text, question, answer) in data:
+    # print "Start text"
+    # print text
+    # print question
+    # print answer
     # convert word array to word vector array for text
     text_vec = []
     for word in text:
@@ -36,7 +40,7 @@ def format_data(data, glove_dict):
         wordvec /= np.sum(wordvec)
       text_vec.append(wordvec)
 
-    question_arr.append(text_vec)
+    text_arr.append(text_vec)
 
     # convert word array to word vector array for question
     question_vec = []
@@ -48,7 +52,7 @@ def format_data(data, glove_dict):
         wordvec /= np.sum(wordvec)
       question_vec.append(wordvec)
 
-    text_arr.append(question_vec)
+    question_arr.append(question_vec)
 
     # convert answer to a onehot vector
     if answer == 'yes':
