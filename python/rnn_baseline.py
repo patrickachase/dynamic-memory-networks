@@ -94,9 +94,9 @@ def RNN(X, num_words_in_X, hidden_size, max_input_size):
   lstm_cell = rnn_cell.LSTMCell(num_units=hidden_size, input_size=WORD_VECTOR_LENGTH)
 
   # Print out all input tensors
-  print "Tensors: \n\n"
-  print X
-  print num_words_in_X
+  # print "Tensors: \n\n"
+  # print X
+  # print num_words_in_X
   # TODO add termination at num_steps back in with sequence_length parameter
   # TODO add back initial state
   output, state = rnn.rnn(lstm_cell, X, sequence_length=num_words_in_X, dtype=tf.float32)
@@ -159,16 +159,13 @@ def run_baseline():
   with tf.variable_scope("question"):
     question_state = RNN(question_placeholder, question_length_placeholder, QUESTION_HIDDEN_SIZE, MAX_QUESTION_LENGTH)
 
+  # Concatenate input and question vectors
   input_and_question = tf.concat(1, [input_state, question_state])
 
-  print "Final state: \n\n"
-  print input_and_question
-
   # Answer model
-  print W_out
-  print b_out
   prediction_probs = tf.nn.softmax(tf.matmul(input_and_question, W_out) + b_out)
 
+  # To get predictions perform a max over each row
   prediction = tf.argmax(prediction_probs, 1)
 
   # Compute loss
@@ -201,14 +198,7 @@ def run_baseline():
 
       # Compute average loss on training data
       for i in range(len(train)):
-        # print answer_train[i]
-        # print np.shape(answer_train[i])
-        #
-        # print labels_placeholder
-        #
-        # print input_placeholder
-        # print np.shape(text_train[i])
-        # Must be [BATCH_SIZE,
+
         num_words_in_inputs = [np.shape(text_train[i])[0]]
         num_words_in_question = [np.shape(question_train[i])[0]]
         loss, current_pred, probs, _ = sess.run([cost, prediction, prediction_probs, optimizer],
