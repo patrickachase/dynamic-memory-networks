@@ -20,7 +20,6 @@ from random import shuffle
 
 #### MODEL PARAMETERS ####
 
-TRAINING_SPLIT = 0.8
 WORD_VECTOR_LENGTH = 50
 VOCAB_LENGTH = 10000
 LEARNING_RATE = 0.001
@@ -35,7 +34,7 @@ MAX_EPOCHS = 10
 BATCH_SIZE = 1
 
 # Number of training elements to train on before an update is printed
-UPDATE_LENGTH = 1000
+UPDATE_LENGTH = 100
 
 
 #### END MODEL PARAMETERS ####
@@ -161,6 +160,8 @@ def run_baseline():
   # Concatenate input and question vectors
   input_and_question = tf.concat(1, [input_state, question_state])
 
+  # sigmoid_input_and_question = tf.nn.tanh(input_and_question)
+
   # Answer model
   prediction_probs = tf.nn.softmax(tf.matmul(input_and_question, W_out) + b_out)
 
@@ -222,6 +223,10 @@ def run_baseline():
         # print "Current question word vectors: {}".format(question_train[i])
         # print "Current number of words in question: {}".format(num_words_in_question)
 
+        # print i
+        # print num_words_in_inputs
+        # print len(num_words_in_inputs)
+        # print np.shape(num_words_in_inputs)
         loss, current_pred, probs, _, input_output_vec, input_state_vec, X_padded_input, question_output_vec, question_state_vec, X_padded_question, input_and_question_vec, W_out_mat, b_out_mat = sess.run(
           [cost, prediction, prediction_probs, optimizer, input_output[num_words_in_inputs[0] - 1], input_state, X_input, question_output[num_words_in_question[0]-1], question_state, Q_input, input_and_question, W_out, b_out],
           feed_dict={input_placeholder: text_train[i],
@@ -240,11 +245,11 @@ def run_baseline():
         # print "Current question state vector: {}".format(question_state_vec)
         # print "Current concatenated input and question embedding vector: {}".format(input_and_question_vec)
 
-        print "Current pred probs: {}".format(probs)
-        print "Current pred: {}".format(current_pred[0])
-        print "Current answer vector: {}".format(answer_train[i])
-        print "Current answer: {}".format(np.argmax(answer_train[i]))
-        print "Current loss: {}".format(loss)
+        # print "Current pred probs: {}".format(probs)
+        # print "Current pred: {}".format(current_pred[0])
+        # print "Current answer vector: {}".format(answer_train[i])
+        # print "Current answer: {}".format(np.argmax(answer_train[i]))
+        # print "Current loss: {}".format(loss)
 
         if current_pred[0] == np.argmax(answer_train[i]):
           num_correct = num_correct + 1
@@ -253,16 +258,16 @@ def run_baseline():
         if i % UPDATE_LENGTH == 0:
           print "Current average training loss: {}".format(total_training_loss / (i + 1))
           print "Current training accuracy: {}".format(float(num_correct) / (i + 1))
-          print "Current input matrix with all words and padding: {}".format(X_input)
-          print "Current input matrix with all words and padding: {}".format(X_padded_input)
-          print "Current input matrix with all words and padding: {}".format(X_padded_question)
-          print "Current input ouput vector: {}".format(input_output_vec)
-          print "Current input state vector: {}".format(input_state_vec)
-          print "Current question ouput vector: {}".format(question_output_vec)
-          print "Current question state vector: {}".format(question_state_vec)
-          print "Current concatenated input and question embedding vector: {}".format(input_and_question_vec)
-          print "Current W: {}".format(W_out_mat)
-          print "Current b: {}".format(b_out_mat)
+          # print "Current input matrix with all words and padding: {}".format(X_input)
+          # print "Current input matrix with all words and padding: {}".format(X_padded_input)
+          # print "Current input matrix with all words and padding: {}".format(X_padded_question)
+          # print "Current input ouput vector: {}".format(input_output_vec)
+          # print "Current input state vector: {}".format(input_state_vec)
+          # print "Current question ouput vector: {}".format(question_output_vec)
+          # print "Current question state vector: {}".format(question_state_vec)
+          # print "Current concatenated input and question embedding vector: {}".format(input_and_question_vec)
+          # print "Current W: {}".format(W_out_mat)
+          # print "Current b: {}".format(b_out_mat)
 
         total_training_loss = total_training_loss + loss
 
@@ -281,14 +286,17 @@ def run_baseline():
       num_correct_val = 0
       # Compute average loss on validation data
       for i in range(len(validation)):
-        num_words_in_inputs = [np.shape(answer_train[i])[0]]
-        loss, currentPred, probs, _ = sess.run([cost, prediction, prediction_probs, optimizer],
-                                               feed_dict={input_placeholder: text_val[i],
-                                                          question_placeholder: question_val[i],
-                                                          labels_placeholder: answer_val[i],
-                                                          input_length_placeholder: num_words_in_inputs})
+        num_words_in_inputs = [np.shape(text_val[i])[0]]
+        num_words_in_question = [np.shape(question_val[i])[0]]
+        loss, current_pred, probs, input_output_vec, input_state_vec, X_padded_input, question_output_vec, question_state_vec, X_padded_question, input_and_question_vec, W_out_mat, b_out_mat = sess.run(
+          [cost, prediction, prediction_probs, input_output[num_words_in_inputs[0] - 1], input_state, X_input, question_output[num_words_in_question[0]-1], question_state, Q_input, input_and_question, W_out, b_out],
+          feed_dict={input_placeholder: text_val[i],
+                     input_length_placeholder: num_words_in_inputs,
+                     question_placeholder: question_val[i],
+                     question_length_placeholder: num_words_in_question,
+                     labels_placeholder: answer_val[i]})
 
-        if currentPred == np.argmax(answer_val[i]):
+        if current_pred == np.argmax(answer_val[i]):
           num_correct_val = num_correct_val + 1
 
         total_validation_loss = total_validation_loss + loss
@@ -304,8 +312,9 @@ def run_baseline():
         best_loss = validation_loss
         best_val_epoch = epoch
         saver.save(sess, '../data/weights/rnn.weights')
-      if epoch - best_val_epoch > EARLY_STOPPING:
-        break
+        print "Weights saved"
+      # if epoch - best_val_epoch > EARLY_STOPPING:
+      #   break
       print 'Total time: {}'.format(time.time() - start)
 
   # Compute average loss on testing data with best weights
