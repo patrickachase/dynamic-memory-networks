@@ -24,13 +24,12 @@ WORD_VECTOR_LENGTH = 50
 VOCAB_LENGTH = 10000
 LEARNING_RATE = 0.001
 NUM_CLASSES = 2
-NUM_EPOCHS = 2
 INPUT_HIDDEN_SIZE = 50
 QUESTION_HIDDEN_SIZE = 50
 EARLY_STOPPING = 2
 MAX_INPUT_LENGTH = 200
-MAX_QUESTION_LENGTH = 100
-MAX_EPOCHS = 10
+MAX_QUESTION_LENGTH = 20
+MAX_EPOCHS = 20
 BATCH_SIZE = 1
 
 # Number of training elements to train on before an update is printed
@@ -159,8 +158,6 @@ def run_baseline():
 
   # Concatenate input and question vectors
   input_and_question = tf.concat(1, [input_state, question_state])
-
-  # sigmoid_input_and_question = tf.nn.tanh(input_and_question)
 
   # Answer model
   prediction_probs = tf.nn.softmax(tf.matmul(input_and_question, W_out) + b_out)
@@ -308,8 +305,8 @@ def run_baseline():
       print 'Training accuracy: {}'.format(training_accuracy)
       print 'Validation loss: {}'.format(average_validation_loss)
       print 'Validation accuracy: {}'.format(validation_accuracy)
-      if validation_loss < best_loss:
-        best_loss = validation_loss
+      if average_validation_loss < best_loss:
+        best_loss = average_validation_loss
         best_val_epoch = epoch
         saver.save(sess, '../data/weights/rnn.weights')
         print "Weights saved"
@@ -317,23 +314,23 @@ def run_baseline():
       #   break
       print 'Total time: {}'.format(time.time() - start)
 
-  # Compute average loss on testing data with best weights
-  saver.restore(sess, '../data/weights/rnn.weights')
+    # Compute average loss on testing data with best weights
+    saver.restore(sess, '../data/weights/rnn.weights')
 
-  sess.run(accuracy,
-           feed_dict={input_placeholder: text_val, labels_placeholder: answer_val,
-                      initial_state: np.zeros(HIDDEN_SIZE)})
+    sess.run(accuracy,
+             feed_dict={input_placeholder: text_val, labels_placeholder: answer_val,
+                        initial_state: np.zeros(HIDDEN_SIZE)})
 
-  print '=-=' * 5
-  print 'Test perplexity: {}'.format(accuracy)
-  print '=-=' * 5
+    print '=-=' * 5
+    print 'Test perplexity: {}'.format(accuracy)
+    print '=-=' * 5
 
-  # TODO add input loop so we can test and debug with our own examples
-  input = ""
-  while input:
-    # Run model
+    # TODO add input loop so we can test and debug with our own examples
+    input = ""
+    while input:
+      # Run model
 
-    input = raw_input('> ')
+      input = raw_input('> ')
 
 
 if __name__ == "__main__":
