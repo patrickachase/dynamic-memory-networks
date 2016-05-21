@@ -149,79 +149,66 @@ def question_module(question_placeholder, num_words_in_question):
 
 
 def episodic_memory_module(sentence_states, number_of_sentences, question_state):
-  # Initialize all matrices and biases
-  # TODO figure out is reuse should be true here
-  with tf.variable_scope("episodic_memory_module"):
-    W_b = tf.get_variable("W_b", shape=(HIDDEN_SIZE, HIDDEN_SIZE))
-    W_1 = tf.get_variable("W_1", shape=(7 * HIDDEN_SIZE + 2, ATTENTION_GATE_HIDDEN_SIZE))
-    b_1 = tf.get_variable("b_1", shape=(1, ATTENTION_GATE_HIDDEN_SIZE))
-    W_2 = tf.get_variable("W_2", shape=(ATTENTION_GATE_HIDDEN_SIZE, 1))
-    b_2 = tf.get_variable("b_2", shape=(1, 1))
-
-  with tf.variable_scope("episode") as episode_scope:
-    gru_cell_episode = rnn_cell.GRUCell(num_units=HIDDEN_SIZE)
-
-  with tf.variable_scope("memory") as memory_scope:
-    gru_cell_memory = rnn_cell.GRUCell(num_units=HIDDEN_SIZE)
 
   memory_states = []
 
-  # Initialize first memory state to be the question state
-  memory_states.append(question_state)
-
   q = question_state
+
+  # Initialize first memory state to be the question state
+  m = q
 
   # There is an episode e and a previous memory state m_prev for each pass through the data
   for i in range(MAX_EPISODES):
 
-    m_prev = memory_states[-1]
-
-    if i == 1:
-      memory_scope.reuse_variables()
+    m_prev = m
 
     # Initialize first hidden state for episode to be zeros
     # TODO figure out if this is the right thing to do
     h = tf.zeros([1, HIDDEN_SIZE])
     final_h = tf.zeros([1, HIDDEN_SIZE])
 
-    episode_states = []
-
     # Loop over the sentences for each episode
     for j in range(MAX_INPUT_SENTENCES):
 
-      if j == 1:
-        episode_scope.reuse_variables()
-
       c_t = sentence_states[j]
 
-      # Compute z
-      z = tf.concat(1, [c_t, m_prev, tf.mul(c_t, q), tf.mul(c_t, m_prev), tf.abs(tf.sub(c_t, q)),
-                        tf.abs(tf.sub(c_t, m_prev)), tf.matmul(c_t, tf.matmul(W_b, tf.transpose(q))),
-                        tf.matmul(c_t, tf.matmul(W_b, tf.transpose(m_prev)))])
+      # Set scope for all these operations to be the episode
+      with tf.variable_scope("episode", reuse=True if (j > 0 or i > 0) else None):
+        W_b = tf.get_variable("W_b", shape=(HIDDEN_SIZE, HIDDEN_SIZE))
+        W_1 = tf.get_variable("W_1", shape=(7 * HIDDEN_SIZE + 2, ATTENTION_GATE_HIDDEN_SIZE))
+        b_1 = tf.get_variable("b_1", shape=(1, ATTENTION_GATE_HIDDEN_SIZE))
+        W_2 = tf.get_variable("W_2", shape=(ATTENTION_GATE_HIDDEN_SIZE, 1))
+        b_2 = tf.get_variable("b_2", shape=(1, 1))
+        gru_cell_episode = rnn_cell.GRUCell(num_units=HIDDEN_SIZE)
 
-      # Compute G
-      attention_gate_hidden_state = tf.tanh(tf.add(tf.matmul(z, W_1), b_1))
-      g = tf.sigmoid(tf.add(tf.matmul(attention_gate_hidden_state, W_2), b_2))
+        # Compute z
+        z = tf.concat(1, [c_t, m_prev, tf.mul(c_t, q), tf.mul(c_t, m_prev), tf.abs(tf.sub(c_t, q)),
+                          tf.abs(tf.sub(c_t, m_prev)), tf.matmul(c_t, tf.matmul(W_b, tf.transpose(q))),
+                          tf.matmul(c_t, tf.matmul(W_b, tf.transpose(m_prev)))])
 
-      # Compute next hidden state
-      h_prev = h
-      # with tf.variable_scope("episode", reuse=True):
-      #gru_cell_episode = rnn_cell.GRUCell(num_units=HIDDEN_SIZE)
-      output, gru_state = gru_cell_episode(c_t, h_prev)
-      h = g * gru_state + (1 - g) * h_prev
+        # Compute G
+        attention_gate_hidden_state = tf.tanh(tf.add(tf.matmul(z, W_1), b_1))
+        g = tf.sigmoid(tf.add(tf.matmul(attention_gate_hidden_state, W_2), b_2))
 
-      # TODO fix so this doesnt run for max sentences every time
-      h = tf.cond(number_of_sentences >= j, lambda: tf.zeros([1,HIDDEN_SIZE]), lambda: h)
+        # Compute next hidden state
+        h_prev = h
 
-      final_h = tf.cond(tf.equal(number_of_sentences, j-1), lambda: h, lambda: final_h)
+        output, gru_state = gru_cell_episode(c_t, h_prev)
+
+        h = g * gru_state + (1 - g) * h_prev
+
+        # TODO fix so this doesnt run for max sentences every time
+        h = tf.cond(number_of_sentences >= j, lambda: tf.zeros([1,HIDDEN_SIZE]), lambda: h)
+
+        final_h = tf.cond(tf.equal(number_of_sentences, j-1), lambda: h, lambda: final_h)
 
     # Episode state is the final hidden state after pass over the data
     e = final_h
 
     # Compute next m with previous m and episode
-    # with tf.variable_scope("memory", reuse=True):
-    #gru_cell_memory = rnn_cell.GRUCell(num_units=HIDDEN_SIZE)
-    output, m = gru_cell_memory(e, m)
+    with tf.variable_scope("memory", reuse=True if i > 0 else None):
+      gru_cell_memory = rnn_cell.GRUCell(num_units=HIDDEN_SIZE)
+      output, m = gru_cell_memory(e, m_prev)
 
   # Return final memory state
   return m
