@@ -182,7 +182,7 @@ def episodic_memory_module(sentence_states, number_of_sentences, question_state)
         gru_cell_episode = rnn_cell.GRUCell(num_units=HIDDEN_SIZE)
 
         # Compute z
-        z = tf.concat(1, [c_t, m_prev, tf.mul(c_t, q), tf.mul(c_t, m_prev), tf.abs(tf.sub(c_t, q)),
+        z = tf.concat(1, [c_t, m_prev, q, tf.mul(c_t, q), tf.mul(c_t, m_prev), tf.abs(tf.sub(c_t, q)),
                           tf.abs(tf.sub(c_t, m_prev)), tf.matmul(c_t, tf.matmul(W_b, tf.transpose(q))),
                           tf.matmul(c_t, tf.matmul(W_b, tf.transpose(m_prev)))])
 
