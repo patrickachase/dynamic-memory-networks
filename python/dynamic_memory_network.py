@@ -31,7 +31,7 @@ MAX_INPUT_LENGTH = 200
 MAX_QUESTION_LENGTH = 20
 MAX_EPOCHS = 20
 MAX_EPISODES = 3
-MAX_INPUT_SENTENCES = 20
+MAX_INPUT_SENTENCES = 40
 
 # Number of training elements to train on before an update is printed
 UPDATE_LENGTH = 1000
