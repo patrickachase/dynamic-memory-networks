@@ -17,6 +17,7 @@ from tensorflow.python.ops.seq2seq import sequence_loss
 from format_data import split_training_data
 from format_data import format_data
 from random import shuffle
+import argparse
 
 #### MODEL PARAMETERS ####
 
@@ -34,10 +35,29 @@ MAX_EPISODES = 3
 MAX_INPUT_SENTENCES = 40
 
 # Number of training elements to train on before an update is printed
-UPDATE_LENGTH = 1000
+UPDATE_LENGTH = 100
 
 
 #### END MODEL PARAMETERS ####
+
+def parse_args():
+  """
+  Parses the command line input.
+
+  """
+  parser = argparse.ArgumentParser()
+  parser.add_argument('-l', default = LEARNING_RATE, help = 'learning rate', type=float)
+  parser.add_argument('-r', default = REG, help = 'regularization', type=float)
+  parser.add_argument('-e', default = MAX_EPOCHS, help = 'number of epochs', type=int)
+  parser.add_argument('-d', default = DROPOUT, help = 'dropout rate', type=float)
+  parser.add_argument('-o', default = OUT_DIR, help = 'location of output directory')
+  parser.add_argument('-t', default = TASK, help = 'facebook babi task number', type=int)
+  parser.add_argument('-h', default = HIDDEN_SIZE, help = 'hidden size', type=int)
+
+  args = parser.parse_args()
+
+
+  params = {'lr': args.l, 'reg': args.r, 'nb_epoch': args.e, 'dropout': args.d, 'output_dir': args.o}
 
 def add_placeholders():
   """Generate placeholder variables to represent the input tensors
@@ -429,6 +449,9 @@ def run_baseline():
       average_validation_loss = total_validation_loss / len(validation)
       validation_accuracy = float(num_correct_val) / len(validation)
 
+      f.open('outputs.txt', 'a+')
+      f.write(average_training_loss+'\t'+training_accuracy+'\t'+average_validation_loss+'\t'+validation_accuracy)
+
       print 'Training loss: {}'.format(average_training_loss)
       print 'Training accuracy: {}'.format(training_accuracy)
       print 'Validation loss: {}'.format(average_validation_loss)
@@ -441,6 +464,8 @@ def run_baseline():
       # if epoch - best_val_epoch > EARLY_STOPPING:
       #   break
       print 'Total time: {}'.format(time.time() - start)
+
+      f.close()
 
     # Compute average loss on testing data with best weights
     saver.restore(sess, '../data/weights/rnn.weights')
