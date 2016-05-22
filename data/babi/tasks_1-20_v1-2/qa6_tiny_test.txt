@@ -1,0 +1,15 @@
+1 Mary got the milk there.
+2 John moved to the bedroom.
+3 Is John in the kitchen? 	no	2
+4 Mary discarded the milk.
+5 John went to the garden.
+6 Is John in the kitchen? 	no	5
+7 Daniel moved to the bedroom.
+8 Daniel went to the garden.
+9 Is John in the garden? 	yes	5
+10 Daniel travelled to the bathroom.
+11 Sandra travelled to the bedroom.
+12 Is Daniel in the bathroom? 	yes	10
+13 Mary took the football there.
+14 Sandra grabbed the milk there.
+15 Is Daniel in the bedroom? 	no	10

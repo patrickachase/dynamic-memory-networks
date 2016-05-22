@@ -33,6 +33,8 @@ MAX_QUESTION_LENGTH = 20
 MAX_EPOCHS = 20
 MAX_EPISODES = 3
 MAX_INPUT_SENTENCES = 40
+REG = 0.0001
+DROPOUT = 0.2
 
 # Number of training elements to train on before an update is printed
 UPDATE_LENGTH = 100
@@ -53,11 +55,18 @@ def parse_args():
   parser.add_argument('-o', default = OUT_DIR, help = 'location of output directory')
   parser.add_argument('-t', default = TASK, help = 'facebook babi task number', type=int)
   parser.add_argument('-h', default = HIDDEN_SIZE, help = 'hidden size', type=int)
+  parser.add_argument('-ah', default = ATTENTION_GATE_HIDDEN_SIZE, help = 'hidden size', type=int)
 
   args = parser.parse_args()
 
-
-  params = {'lr': args.l, 'reg': args.r, 'nb_epoch': args.e, 'dropout': args.d, 'output_dir': args.o}
+  LEARNING_RATE = args.l
+  REG = args.r
+  MAX_EPOCHS = args.e
+  DROPOUT = args.d
+  OUT_DIR = args.o
+  TASK = args.t
+  HIDDEN_SIZE = args.h
+  ATTENTION_GATE_HIDDEN_SIZE = args.ah
 
 def add_placeholders():
   """Generate placeholder variables to represent the input tensors
@@ -430,16 +439,18 @@ def run_baseline():
       num_correct_val = 0
       # Compute average loss on validation data
       for i in range(len(validation)):
+
+        index_end_of_sentences = get_end_of_sentences(validation[i][0])
         num_words_in_inputs = [np.shape(text_val[i])[0]]
         num_words_in_question = [np.shape(question_val[i])[0]]
-        loss, current_pred, probs, input_output_vec, input_state_vec, X_padded_input, question_output_vec, question_state_vec, X_padded_question, input_and_question_vec, W_out_mat, b_out_mat = sess.run(
-          [cost, prediction, prediction_probs, input_output[num_words_in_inputs[0] - 1], input_state, X_input,
-           question_output[num_words_in_question[0] - 1], question_state, Q_input, input_and_question, W_out, b_out],
-          feed_dict={input_placeholder: text_val[i],
+        loss, current_pred, probs = sess.run(
+          [cost, prediction, prediction_probs],
+          feed_dict={input_placeholder: text_train[i],
                      input_length_placeholder: num_words_in_inputs,
-                     question_placeholder: question_val[i],
+                     end_of_sentences_placeholder: index_end_of_sentences,
+                     question_placeholder: question_train[i],
                      question_length_placeholder: num_words_in_question,
-                     labels_placeholder: answer_val[i]})
+                     labels_placeholder: answer_train[i]})
 
         if current_pred == np.argmax(answer_val[i]):
           num_correct_val = num_correct_val + 1
@@ -449,8 +460,12 @@ def run_baseline():
       average_validation_loss = total_validation_loss / len(validation)
       validation_accuracy = float(num_correct_val) / len(validation)
 
-      f.open('outputs.txt', 'a+')
-      f.write(average_training_loss+'\t'+training_accuracy+'\t'+average_validation_loss+'\t'+validation_accuracy)
+      f = open('outputs.txt', 'a+')
+      output_string = str(average_training_loss) + '\t'
+      output_string += str(training_accuracy) + '\t'
+      output_string += str(average_validation_loss) + '\t'
+      output_string += str(validation_accuracy) + '\n'
+      f.write(output_string)
 
       print 'Training loss: {}'.format(average_training_loss)
       print 'Training accuracy: {}'.format(training_accuracy)
