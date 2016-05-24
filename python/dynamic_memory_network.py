@@ -419,14 +419,14 @@ def run_baseline():
       for i in range(len(validation)):
 
         index_end_of_sentences = get_end_of_sentences(validation[i][0])
-        loss, current_pred, probs = sess.run(
-          [cost, prediction, prediction_probs],
+        loss, probs = sess.run(
+          [cost, prediction_probs],
           feed_dict={input_placeholder: text_train[i],
                      end_of_sentences_placeholder: index_end_of_sentences,
                      question_placeholder: question_train[i],
                      labels_placeholder: answer_train[i]})
 
-        if current_pred == np.argmax(answer_val[i]):
+        if np.argmax(probs) == np.argmax(answer_val[i]):
           num_correct_val = num_correct_val + 1
 
         total_validation_loss = total_validation_loss + loss
