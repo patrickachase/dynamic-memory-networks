@@ -94,16 +94,17 @@ def add_placeholders():
   """
 
   input_placeholder = tf.placeholder(tf.float32, shape=[None, WORD_VECTOR_LENGTH])
-  input_length_placeholder = tf.placeholder(tf.int32, shape=[1])
   end_of_sentences_placeholder = tf.placeholder(tf.int32, shape=[None])
   question_placeholder = tf.placeholder(tf.float32, shape=[None, WORD_VECTOR_LENGTH])
-  question_length_placeholder = tf.placeholder(tf.int32, shape=[1])
   labels_placeholder = tf.placeholder(tf.float32, shape=[None, NUM_CLASSES])
-  return input_placeholder, input_length_placeholder, end_of_sentences_placeholder, question_placeholder, \
-         question_length_placeholder, labels_placeholder
+  return input_placeholder, end_of_sentences_placeholder, question_placeholder, labels_placeholder
 
 
-def RNN(X, num_words_in_X, hidden_size, max_input_size):
+def RNN(X, hidden_size, max_input_size):
+
+  # Compute the number of words in X
+  num_words_in_X = tf.gather(tf.shape(X), [0])
+
   # Reshape `X` as a vector. -1 means "set this dimension automatically".
   X_as_vector = tf.reshape(X, [-1])
 
@@ -122,7 +123,7 @@ def RNN(X, num_words_in_X, hidden_size, max_input_size):
 
   gru_cell = rnn_cell.GRUCell(num_units=hidden_size, input_size=WORD_VECTOR_LENGTH)
 
-  outputs, state = rnn.rnn(gru_cell, X, sequence_length=(num_words_in_X), dtype=tf.float32)
+  outputs, state = rnn.rnn(gru_cell, X, sequence_length=num_words_in_X, dtype=tf.float32)
 
   return outputs, state
 
@@ -142,11 +143,12 @@ def count_positive_and_negative(answer_vecs):
 # Takes in an input matrix of size (number of words in input) x (WORD_VECTOR_LENGTH) with the input word vectors
 # and a tensor the length of the number of sentences in the input with the index of the word that ends each
 # sentence and returns a list of the states after the end of each sentence to be fed to other modules.
-def input_module(input_placeholder, input_length_placeholder, index_end_of_sentences):
-  # Get outputs after every word
-  outputs, state = RNN(input_placeholder, input_length_placeholder, HIDDEN_SIZE, MAX_INPUT_LENGTH)
+def input_module(input_placeholder, index_end_of_sentences):
 
-  # Convert list of outputs into a tensor of dimension (number of words in input) x (INPUT_HIDDEN_SIZE)
+  # Get outputs after every word
+  outputs, state = RNN(input_placeholder, HIDDEN_SIZE, MAX_INPUT_LENGTH)
+
+  # Convert list of outputs into a tensor of dimension (MAX_INPUT_LENGTH) x (INPUT_HIDDEN_SIZE)
   output_mat = tf.concat(0, outputs)
 
   # Only project the state at the end of each sentence
@@ -171,8 +173,8 @@ def input_module(input_placeholder, input_length_placeholder, index_end_of_sente
   return sentence_representations, tf.shape(sentence_representations_mat)[0]
 
 
-def question_module(question_placeholder, num_words_in_question):
-  outputs, state = RNN(question_placeholder, num_words_in_question, HIDDEN_SIZE, MAX_QUESTION_LENGTH)
+def question_module(question_placeholder):
+  outputs, state = RNN(question_placeholder, HIDDEN_SIZE, MAX_QUESTION_LENGTH)
 
   return state
 
@@ -293,16 +295,15 @@ def run_baseline():
   print "Testing samples: {}".format(len(test))
 
   # Add placeholders
-  input_placeholder, input_length_placeholder, end_of_sentences_placeholder, question_placeholder, \
-  question_length_placeholder, labels_placeholder, = add_placeholders()
+  input_placeholder, end_of_sentences_placeholder, question_placeholder, labels_placeholder, = add_placeholders()
 
   # Input module
   with tf.variable_scope("input"):
-    sentence_states, number_of_sentences = input_module(input_placeholder, input_length_placeholder, end_of_sentences_placeholder)
+    sentence_states, number_of_sentences = input_module(input_placeholder, end_of_sentences_placeholder)
 
   # Question module
   with tf.variable_scope("question"):
-    question_state = question_module(question_placeholder, question_length_placeholder)
+    question_state = question_module(question_placeholder)
 
   # Episodic memory moduel
   with tf.variable_scope("episode"):
@@ -375,17 +376,11 @@ def run_baseline():
         # print "Current question word vectors: {}".format(question_train[i])
         # print "Current number of words in question: {}".format(num_words_in_question)
 
-        # print i
-        # print num_words_in_inputs
-        # print len(num_words_in_inputs)
-        # print np.shape(num_words_in_inputs)
-        loss, current_pred, probs, _ = sess.run(
-          [cost, prediction, prediction_probs, optimizer],
+        loss, probs, _ = sess.run(
+          [cost, prediction_probs, optimizer],
           feed_dict={input_placeholder: text_train[i],
-                     input_length_placeholder: num_words_in_inputs,
                      end_of_sentences_placeholder: index_end_of_sentences,
                      question_placeholder: question_train[i],
-                     question_length_placeholder: num_words_in_question,
                      labels_placeholder: answer_train[i]})
 
         # Print all outputs and intermediate steps for debugging
@@ -398,14 +393,15 @@ def run_baseline():
         # print "Current question state vector: {}".format(question_state_vec)
         # print "Current concatenated input and question embedding vector: {}".format(input_and_question_vec)
 
-        # print "Current pred probs: {}".format(probs)
-        # print "Current pred: {}".format(current_pred[0])
-        # print "Current answer vector: {}".format(answer_train[i])
-        # print "Current answer: {}".format(np.argmax(answer_train[i]))
-        # print "Current loss: {}".format(loss)
+        print "Current pred probs: {}".format(probs)
+        print "Current pred: {}".format(current_pred[0])
+        print "Current answer vector: {}".format(answer_train[i])
+        print "Current answer: {}".format(np.argmax(answer_train[i]))
+        print "Current loss: {}".format(loss)
 
-        if current_pred[0] == np.argmax(answer_train[i]):
+        if np.argmax(probs) == np.argmax(answer_train[i]):
           num_correct = num_correct + 1
+          print "Correct"
 
         # Print a training update
         if i % UPDATE_LENGTH == 0:
