@@ -248,9 +248,9 @@ def answer_module(episodic_memory_state):
     W_out = tf.get_variable("W_out", shape=(HIDDEN_SIZE, NUM_CLASSES))
     b_out = tf.get_variable("b_out", shape=(1, NUM_CLASSES))
 
-  prediction_probs = tf.nn.softmax(tf.matmul(episodic_memory_state, W_out) + b_out)
+  projections = tf.matmul(episodic_memory_state, W_out) + b_out
 
-  return prediction_probs
+  return projections
 
 
 def get_end_of_sentences(words):
@@ -309,13 +309,13 @@ def run_baseline():
 
   # Answer module
   with tf.variable_scope("answer"):
-    prediction_probs = answer_module(episodic_memory_state)
+    projections = answer_module(episodic_memory_state)
 
   # To get predictions perform a max over probabilities
-  prediction = tf.argmax(prediction_probs, 1)
+  prediction_probs = tf.nn.softmax(projections)
 
   # Compute loss
-  cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(prediction_probs, labels_placeholder))
+  cost = tf.nn.softmax_cross_entropy_with_logits(projections, labels_placeholder)
 
   # Add optimizer
   optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE).minimize(cost)
@@ -366,10 +366,10 @@ def run_baseline():
 
         index_end_of_sentences = get_end_of_sentences(train[i][0])
 
-        print "Training example: {}".format(train[i])
-        print "Number of words in input: {}".format(np.shape(text_train[i])[0])
-        print "Number of words in question: {}".format(np.shape(question_train[i])[0])
-        print "Ends of sentences: {}".format(index_end_of_sentences)
+        # print "Training example: {}".format(train[i])
+        # print "Number of words in input: {}".format(np.shape(text_train[i])[0])
+        # print "Number of words in question: {}".format(np.shape(question_train[i])[0])
+        # print "Ends of sentences: {}".format(index_end_of_sentences)
 
         loss, probs, _, sentence_states_out, number_of_sentences_out, question_state_out, episodic_memory_state_out = sess.run(
           [cost, prediction_probs, optimizer, sentence_states[-1], number_of_sentences, question_state,
@@ -385,15 +385,15 @@ def run_baseline():
         # print "Current question vector: {}".format(question_state_out)
         # print "Current episodic memory vector: {}".format(episodic_memory_state_out)
 
-        print "Current pred probs: {}".format(probs)
-        print "Current pred: {}".format(np.argmax(probs))
-        print "Current answer vector: {}".format(answer_train[i])
-        print "Current answer: {}".format(np.argmax(answer_train[i]))
-        print "Current loss: {}".format(loss)
+        # print "Current pred probs: {}".format(probs)
+        # print "Current pred: {}".format(np.argmax(probs))
+        # print "Current answer vector: {}".format(answer_train[i])
+        # print "Current answer: {}".format(np.argmax(answer_train[i]))
+        # print "Current loss: {}".format(loss)
 
         if np.argmax(probs) == np.argmax(answer_train[i]):
           num_correct = num_correct + 1
-          print "Correct"
+          #print "Correct"
 
         # Print a training update
         if i % UPDATE_LENGTH == 0:
