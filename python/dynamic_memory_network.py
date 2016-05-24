@@ -380,10 +380,10 @@ def run_baseline():
                      labels_placeholder: answer_train[i]})
 
         # Print all outputs and intermediate steps for debugging
-        print "Current sentence states: {}".format(sentence_states_out)
-        print "Current number of sentences: {}".format(number_of_sentences_out)
-        print "Current question vector: {}".format(question_state_out)
-        print "Current episodic memory vector: {}".format(episodic_memory_state_out)
+        # print "Current sentence states: {}".format(sentence_states_out)
+        # print "Current number of sentences: {}".format(number_of_sentences_out)
+        # print "Current question vector: {}".format(question_state_out)
+        # print "Current episodic memory vector: {}".format(episodic_memory_state_out)
 
         print "Current pred probs: {}".format(probs)
         print "Current pred: {}".format(np.argmax(probs))
@@ -419,15 +419,11 @@ def run_baseline():
       for i in range(len(validation)):
 
         index_end_of_sentences = get_end_of_sentences(validation[i][0])
-        num_words_in_inputs = [np.shape(text_val[i])[0]]
-        num_words_in_question = [np.shape(question_val[i])[0]]
         loss, current_pred, probs = sess.run(
           [cost, prediction, prediction_probs],
           feed_dict={input_placeholder: text_train[i],
-                     input_length_placeholder: num_words_in_inputs,
                      end_of_sentences_placeholder: index_end_of_sentences,
                      question_placeholder: question_train[i],
-                     question_length_placeholder: num_words_in_question,
                      labels_placeholder: answer_train[i]})
 
         if current_pred == np.argmax(answer_val[i]):
