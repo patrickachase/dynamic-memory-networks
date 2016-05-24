@@ -48,14 +48,14 @@ def parse_args():
 
   """
   parser = argparse.ArgumentParser()
-  parser.add_argument('-l', default = LEARNING_RATE, help = 'learning rate', type=float)
-  parser.add_argument('-r', default = REG, help = 'regularization', type=float)
-  parser.add_argument('-e', default = MAX_EPOCHS, help = 'number of epochs', type=int)
-  parser.add_argument('-d', default = DROPOUT, help = 'dropout rate', type=float)
-  parser.add_argument('-o', default = OUT_DIR, help = 'location of output directory')
-  parser.add_argument('-t', default = TASK, help = 'facebook babi task number', type=int)
-  parser.add_argument('-h', default = HIDDEN_SIZE, help = 'hidden size', type=int)
-  parser.add_argument('-ah', default = ATTENTION_GATE_HIDDEN_SIZE, help = 'hidden size', type=int)
+  parser.add_argument('-l', default=LEARNING_RATE, help='learning rate', type=float)
+  parser.add_argument('-r', default=REG, help='regularization', type=float)
+  parser.add_argument('-e', default=MAX_EPOCHS, help='number of epochs', type=int)
+  parser.add_argument('-d', default=DROPOUT, help='dropout rate', type=float)
+  parser.add_argument('-o', default=OUT_DIR, help='location of output directory')
+  parser.add_argument('-t', default=TASK, help='facebook babi task number', type=int)
+  parser.add_argument('-h', default=HIDDEN_SIZE, help='hidden size', type=int)
+  parser.add_argument('-ah', default=ATTENTION_GATE_HIDDEN_SIZE, help='hidden size', type=int)
 
   args = parser.parse_args()
 
@@ -67,6 +67,7 @@ def parse_args():
   TASK = args.t
   HIDDEN_SIZE = args.h
   ATTENTION_GATE_HIDDEN_SIZE = args.ah
+
 
 def add_placeholders():
   """Generate placeholder variables to represent the input tensors
@@ -101,7 +102,6 @@ def add_placeholders():
 
 
 def RNN(X, hidden_size, max_input_size):
-
   # Compute the number of words in X
   num_words_in_X = tf.gather(tf.shape(X), [0])
 
@@ -144,7 +144,6 @@ def count_positive_and_negative(answer_vecs):
 # and a tensor the length of the number of sentences in the input with the index of the word that ends each
 # sentence and returns a list of the states after the end of each sentence to be fed to other modules.
 def input_module(input_placeholder, index_end_of_sentences):
-
   # Get outputs after every word
   outputs, state = RNN(input_placeholder, HIDDEN_SIZE, MAX_INPUT_LENGTH)
 
@@ -158,7 +157,8 @@ def input_module(input_placeholder, index_end_of_sentences):
   sentences_as_vector = tf.reshape(sentence_representations_mat, [-1])
 
   # Create another vector containing zeroes to pad `X` to (MAX_INPUT_LENGTH * WORD_VECTOR_LENGTH) elements.
-  zero_padding = tf.zeros([MAX_INPUT_SENTENCES * HIDDEN_SIZE] - tf.shape(sentences_as_vector), dtype=sentences_as_vector.dtype)
+  zero_padding = tf.zeros([MAX_INPUT_SENTENCES * HIDDEN_SIZE] - tf.shape(sentences_as_vector),
+                          dtype=sentences_as_vector.dtype)
 
   # Concatenate `X_as_vector` with the padding.
   sentences_padded_as_vector = tf.concat(0, [sentences_as_vector, zero_padding])
@@ -180,7 +180,6 @@ def question_module(question_placeholder):
 
 
 def episodic_memory_module(sentence_states, number_of_sentences, question_state):
-
   memory_states = []
 
   q = question_state
@@ -200,7 +199,6 @@ def episodic_memory_module(sentence_states, number_of_sentences, question_state)
 
     # Loop over the sentences for each episode
     for j in range(MAX_INPUT_SENTENCES):
-
       c_t = sentence_states[j]
 
       # Set scope for all these operations to be the episode
@@ -229,9 +227,9 @@ def episodic_memory_module(sentence_states, number_of_sentences, question_state)
         h = g * gru_state + (1 - g) * h_prev
 
         # TODO fix so this doesnt run for max sentences every time
-        h = tf.cond(number_of_sentences >= j, lambda: tf.zeros([1,HIDDEN_SIZE]), lambda: h)
+        h = tf.cond(number_of_sentences >= j, lambda: tf.zeros([1, HIDDEN_SIZE]), lambda: h)
 
-        final_h = tf.cond(tf.equal(number_of_sentences, j-1), lambda: h, lambda: final_h)
+        final_h = tf.cond(tf.equal(number_of_sentences, j - 1), lambda: h, lambda: final_h)
 
     # Episode state is the final hidden state after pass over the data
     e = final_h
@@ -307,7 +305,7 @@ def run_baseline():
 
   # Episodic memory moduel
   with tf.variable_scope("episode"):
-      episodic_memory_state = episodic_memory_module(sentence_states, number_of_sentences, question_state)
+    episodic_memory_state = episodic_memory_module(sentence_states, number_of_sentences, question_state)
 
   # Answer module
   with tf.variable_scope("answer"):
@@ -367,34 +365,28 @@ def run_baseline():
       for i in range(len(train)):
 
         index_end_of_sentences = get_end_of_sentences(train[i][0])
-        num_words_in_inputs = [np.shape(text_train[i])[0]]
-        num_words_in_question = [np.shape(question_train[i])[0]]
 
-        # Print all inputs
-        # print "Current input word vectors: {}".format(text_train[i])
-        # print "Current number of words in input: {}".format(num_words_in_inputs)
-        # print "Current question word vectors: {}".format(question_train[i])
-        # print "Current number of words in question: {}".format(num_words_in_question)
+        print "Training example: {}".format(train[i])
+        print "Number of words in input: {}".format(np.shape(text_train[i])[0])
+        print "Number of words in question: {}".format(np.shape(question_train[i])[0])
+        print "Ends of sentences: {}".format(index_end_of_sentences)
 
-        loss, probs, _ = sess.run(
-          [cost, prediction_probs, optimizer],
+        loss, probs, _, sentence_states_out, number_of_sentences_out, question_state_out, episodic_memory_state_out = sess.run(
+          [cost, prediction_probs, optimizer, sentence_states[-1], number_of_sentences, question_state,
+           episodic_memory_state],
           feed_dict={input_placeholder: text_train[i],
                      end_of_sentences_placeholder: index_end_of_sentences,
                      question_placeholder: question_train[i],
                      labels_placeholder: answer_train[i]})
 
         # Print all outputs and intermediate steps for debugging
-        # print "Current input matrix with all words and padding: {}".format(X_input)
-        # print "Current input matrix with all words and padding: {}".format(X_padded_input)
-        # print "Current input matrix with all words and padding: {}".format(X_padded_question)
-        # print "Current input ouput vector: {}".format(input_output_vec)
-        # print "Current input state vector: {}".format(input_state_vec)
-        # print "Current question ouput vector: {}".format(question_output_vec)
-        # print "Current question state vector: {}".format(question_state_vec)
-        # print "Current concatenated input and question embedding vector: {}".format(input_and_question_vec)
+        print "Current sentence states: {}".format(sentence_states_out)
+        print "Current number of sentences: {}".format(number_of_sentences_out)
+        print "Current question vector: {}".format(question_state_out)
+        print "Current episodic memory vector: {}".format(episodic_memory_state_out)
 
         print "Current pred probs: {}".format(probs)
-        print "Current pred: {}".format(current_pred[0])
+        print "Current pred: {}".format(np.argmax(probs))
         print "Current answer vector: {}".format(answer_train[i])
         print "Current answer: {}".format(np.argmax(answer_train[i]))
         print "Current loss: {}".format(loss)
@@ -407,16 +399,6 @@ def run_baseline():
         if i % UPDATE_LENGTH == 0:
           print "Current average training loss: {}".format(total_training_loss / (i + 1))
           print "Current training accuracy: {}".format(float(num_correct) / (i + 1))
-          # print "Current input matrix with all words and padding: {}".format(X_input)
-          # print "Current input matrix with all words and padding: {}".format(X_padded_input)
-          # print "Current input matrix with all words and padding: {}".format(X_padded_question)
-          # print "Current input ouput vector: {}".format(input_output_vec)
-          # print "Current input state vector: {}".format(input_state_vec)
-          # print "Current question ouput vector: {}".format(question_output_vec)
-          # print "Current question state vector: {}".format(question_state_vec)
-          # print "Current concatenated input and question embedding vector: {}".format(input_and_question_vec)
-          # print "Current W: {}".format(W_out_mat)
-          # print "Current b: {}".format(b_out_mat)
 
         total_training_loss = total_training_loss + loss
 
@@ -424,7 +406,7 @@ def run_baseline():
         # if prev_prediction != current_pred[0]:
         #   print "Prediction changed"
 
-        prev_prediction = current_pred[0]
+        prev_prediction = np.argmax(probs)
 
       average_training_loss = total_training_loss / len(train)
       training_accuracy = float(num_correct) / len(train)
