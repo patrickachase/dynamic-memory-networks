@@ -17,56 +17,32 @@ from tensorflow.python.ops.seq2seq import sequence_loss
 from format_data import split_training_data
 from format_data import format_data
 from random import shuffle
-import argparse
+from params import parse_args
 
 #### MODEL PARAMETERS ####
 
+params = parse_args()
+
 WORD_VECTOR_LENGTH = 50
 VOCAB_LENGTH = 10000
-LEARNING_RATE = 0.001
 NUM_CLASSES = 2
-HIDDEN_SIZE = 50
-ATTENTION_GATE_HIDDEN_SIZE = 50
+MAX_EPISODES = 3
+MAX_INPUT_SENTENCES = 40
 EARLY_STOPPING = 2
 MAX_INPUT_LENGTH = 200
 MAX_QUESTION_LENGTH = 20
-MAX_EPOCHS = 20
-MAX_EPISODES = 3
-MAX_INPUT_SENTENCES = 40
-REG = 0.0001
-DROPOUT = 0.2
 
-# Number of training elements to train on before an update is printed
-UPDATE_LENGTH = 100
-
+LEARNING_RATE = params['LEARNING_RATE']
+HIDDEN_SIZE = params['HIDDEN_SIZE']
+ATTENTION_GATE_HIDDEN_SIZE = params['ATTENTION_GATE_HIDDEN_SIZE']
+MAX_EPOCHS = params['MAX_EPOCHS']
+REG = params['REG']
+DROPOUT = params['DROPOUT']
+OUT_DIR = params['OUT_DIR']
+TASK = params['TASK']
+UPDATE_LENGTH = params['UPDATE_LENGTH']
 
 #### END MODEL PARAMETERS ####
-
-def parse_args():
-  """
-  Parses the command line input.
-
-  """
-  parser = argparse.ArgumentParser()
-  parser.add_argument('-l', default=LEARNING_RATE, help='learning rate', type=float)
-  parser.add_argument('-r', default=REG, help='regularization', type=float)
-  parser.add_argument('-e', default=MAX_EPOCHS, help='number of epochs', type=int)
-  parser.add_argument('-d', default=DROPOUT, help='dropout rate', type=float)
-  parser.add_argument('-o', default=OUT_DIR, help='location of output directory')
-  parser.add_argument('-t', default=TASK, help='facebook babi task number', type=int)
-  parser.add_argument('-h', default=HIDDEN_SIZE, help='hidden size', type=int)
-  parser.add_argument('-ah', default=ATTENTION_GATE_HIDDEN_SIZE, help='hidden size', type=int)
-
-  args = parser.parse_args()
-
-  LEARNING_RATE = args.l
-  REG = args.r
-  MAX_EPOCHS = args.e
-  DROPOUT = args.d
-  OUT_DIR = args.o
-  TASK = args.t
-  HIDDEN_SIZE = args.h
-  ATTENTION_GATE_HIDDEN_SIZE = args.ah
 
 
 def add_placeholders():
@@ -265,6 +241,7 @@ def get_end_of_sentences(words):
 
 
 def run_baseline():
+
   # Get train dataset for task 6
   train_total = get_task_6_train()
 
