@@ -14,8 +14,7 @@ from get_glove import load_glove_vectors
 from get_babi_data import get_task_1_train
 from get_babi_data import get_task_1_test
 from tensorflow.python.ops.seq2seq import sequence_loss
-from format_data import split_training_data
-from format_data import format_data
+from format_data import split_training_data, format_data, batch_data, convert_to_vectors, get_word_vector
 from random import shuffle
 
 #### MODEL PARAMETERS ####
@@ -35,7 +34,6 @@ BATCH_SIZE = 100
 
 # Number of batches to train on before an update is printed
 UPDATE_LENGTH = 1
-
 
 #### END MODEL PARAMETERS ####
 
@@ -91,137 +89,6 @@ def RNN(X, num_words_in_X, hidden_size, input_vector_size, max_input_size):
   return output, state, X
 
 
-def batch_data(data):
-  """ 
-  Takes in a list of tuples of (input, question, answer) and returns a list of length 
-  (number of examples) / BATCH_SIZE where each element is a batch of BATCH_SIZE questions.
-
-  data: a list of tuples of (input, question, answer)
-
-  """
-
-  # Compute total number of batches for the data set
-  num_batches = len(data) / BATCH_SIZE
-
-  batched_data = []
-  for i in range(num_batches):
-    # Get current batch
-    current_batch = []
-
-    for j in range(BATCH_SIZE):
-      if i * BATCH_SIZE + j < len(data):
-        current_batch.append(data[i * BATCH_SIZE + j])
-
-    batched_data.append(current_batch)
-
-  return batched_data
-
-
-def convert_to_vectors(batched_data, glove_dict):
-  """
-
-  Takes in a list of batches of data and converts them to a list of batched vectors
-  Each element of the returned list contains all the vectors for a batch of data
-  Output dimension is (max num words) x (BATCH_SIZE) x (WORD_VECTOR_LENGTH)
-  If there are no fewer words than the max number of words zero vectors are added for padding
-
-  batched_data: A list of of length number of batches. Each element is a batch of 
-                (input, question, answer) tuples
-  glove_dict: dictionary from word to glove word vector
-
-  """
-
-
-  batched_input_vecs = []
-  batched_input_lengths = []
-  batched_question_vecs = []
-  batched_question_lengths = []
-  batched_answer_vecs = []
-
-  for batch in batched_data:
-
-    # Batch is a list of tuples of length BATCH_SIZE or less
-
-    # Create an array to hold all of the word vectors for the batch
-    batch_input_vecs = np.zeros((MAX_INPUT_LENGTH, len(batch), WORD_VECTOR_LENGTH))
-    batch_input_lengths = np.zeros(len(batch))
-    batch_question_vecs = np.zeros((MAX_QUESTION_LENGTH, len(batch), WORD_VECTOR_LENGTH))
-    batch_question_lengths = np.zeros(len(batch))
-    batch_answer_vecs = np.zeros((len(batch), NUM_CLASSES))
-
-    for i in range(len(batch)):
-      example = batch[i]
-      input = example[0]
-      question = example[1]
-      answer = example[2]
-
-      # Add input vectors
-      for j in range(len(input)):
-        if j >= MAX_INPUT_LENGTH:
-          continue
-        word = input[j]
-
-        word_vector = get_word_vector(word, glove_dict)
-
-        # Set the jth word of the ith batch to be the word vector
-        batch_input_vecs[j, i, :] = word_vector
-
-      # Add input length
-      batch_input_lengths[i] = len(input)
-
-      # Add question vectors
-      for j in range(len(question)):
-        if j >= MAX_QUESTION_LENGTH:
-          continue
-        word = question[j]
-
-        word_vector = get_word_vector(word, glove_dict)
-
-        # Set the jth word of the ith batch to be the word vector
-        batch_question_vecs[j, i, :] = word_vector
-
-      # Add question length
-      batch_question_lengths[i] = len(question)
-
-      # Add answer vectors
-
-      # convert answer to a onehot vector
-      if answer == 'yes':
-        answer = np.array([1, 0])
-        answer = answer.reshape((1, NUM_CLASSES))
-      else:
-        answer = np.array([0, 1])
-        answer = answer.reshape((1, NUM_CLASSES))
-
-      batch_answer_vecs[i, :] = answer
-
-    batched_input_vecs.append(batch_input_vecs)
-    batched_input_lengths.append(batch_input_lengths)
-    batched_question_vecs.append(batch_question_vecs)
-    batched_question_lengths.append(batch_question_lengths)
-    batched_answer_vecs.append(batch_answer_vecs)
-
-  return batched_input_vecs, batched_input_lengths, batched_question_vecs, batched_question_lengths, batched_answer_vecs
-
-
-def get_word_vector(word, glove_dict):
-  """ 
-  Helper function that returns a glove vector for a word if it exists in the glove dictionary, and
-  returns a random vector if it does not. 
-
-  word: The string of a word to look up in the dictionary
-  glove_dict: A dictionary from words to glove word vectors
-
-  """
-
-  if word in glove_dict:
-    word_vec = glove_dict[word]
-  else:
-    word_vec = np.random.rand(1, WORD_VECTOR_LENGTH)[0]
-    word_vec /= np.sum(word_vec)
-  return word_vec
-
-
 def answer_module(input_and_question):
   """ 
   The answer module is a NN with the following structure:
@@ -265,21 +132,21 @@ def run_baseline():
   glove_dict = load_glove_vectors()
 
   # Split data into batches
-  train_batches = batch_data(train)
-  validation_batches = batch_data(validation)
-  test_batches = batch_data(test)
+  train_batches = batch_data(train, BATCH_SIZE)
+  validation_batches = batch_data(validation, BATCH_SIZE)
+  test_batches = batch_data(test, BATCH_SIZE)
 
   # Convert batches into vectors
   train_batched_input_vecs, train_batched_input_lengths, train_batched_question_vecs, \
   train_batched_question_lengths, train_batched_answer_vecs = convert_to_vectors(
-    train_batches, glove_dict)
+    train_batches, glove_dict, MAX_INPUT_LENGTH, MAX_QUESTION_LENGTH)
 
   val_batched_input_vecs, val_batched_input_lengths, val_batched_question_vecs, \
-  val_batched_question_lengths, val_batched_answer_vecs = convert_to_vectors(validation_batches, glove_dict)
+  val_batched_question_lengths, val_batched_answer_vecs = convert_to_vectors(validation_batches, glove_dict, MAX_INPUT_LENGTH, MAX_QUESTION_LENGTH)
 
   test_batched_input_vecs, test_batched_input_lengths, test_batched_question_vecs, \
   test_batched_question_lengths, test_batched_answer_vecs = convert_to_vectors(
-    test_batches, glove_dict)
+    test_batches, glove_dict, MAX_INPUT_LENGTH, MAX_QUESTION_LENGTH)
 
   # Print summary statistics
   print "Training samples: {}".format(len(train))
