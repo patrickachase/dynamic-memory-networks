@@ -316,22 +316,22 @@ def run_baseline():
 
       # Shuffle training data
       # TODO put this in a function
-      # train_shuf = []
-      # train_input_shuf = []
-      # train_question_shuf = []
-      # train_answer_shuf = []
-      # index_shuf = range(len(text_train))
-      # shuffle(index_shuf)
-      # for i in index_shuf:
-      #   train_shuf.append(train[i])
-      #   train_input_shuf.append(text_train[i])
-      #   train_question_shuf.append(question_train[i])
-      #   train_answer_shuf.append(answer_train[i])
-      #
-      # train = train_shuf
-      # text_train = train_input_shuf
-      # question_train = train_question_shuf
-      # answer_train = train_answer_shuf
+      train_shuf = []
+      train_input_shuf = []
+      train_question_shuf = []
+      train_answer_shuf = []
+      index_shuf = range(len(text_train))
+      shuffle(index_shuf)
+      for i in index_shuf:
+        train_shuf.append(train[i])
+        train_input_shuf.append(text_train[i])
+        train_question_shuf.append(question_train[i])
+        train_answer_shuf.append(answer_train[i])
+
+      train = train_shuf
+      text_train = train_input_shuf
+      question_train = train_question_shuf
+      answer_train = train_answer_shuf
 
       total_training_loss = 0
       num_correct = 0

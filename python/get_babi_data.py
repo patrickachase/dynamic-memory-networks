@@ -13,13 +13,13 @@ def get_task_1_test():
 
 # Returns a list of (input, question, answer) tuples for the training set
 def get_task_6_train():
-    #return get_babi_dataset('../data/babi/tasks_1-20_v1-2/en-10k/qa6_yes-no-questions_train.txt')
-    return get_babi_dataset('../data/babi/tasks_1-20_v1-2/qa6_tiny_train.txt')
+    return get_babi_dataset('../data/babi/tasks_1-20_v1-2/en/qa6_yes-no-questions_train.txt')
+    #return get_babi_dataset('../data/babi/tasks_1-20_v1-2/qa6_tiny_train.txt')
 
 # Returns a list of (input, question, answer) tuples for the training set
 def get_task_6_test():
-    #return get_babi_dataset('../data/babi/tasks_1-20_v1-2/en-10k/qa6_yes-no-questions_test.txt')
-    return get_babi_dataset('../data/babi/tasks_1-20_v1-2/qa6_tiny_test.txt')
+    return get_babi_dataset('../data/babi/tasks_1-20_v1-2/en/qa6_yes-no-questions_test.txt')
+    #return get_babi_dataset('../data/babi/tasks_1-20_v1-2/qa6_tiny_test.txt')
 
 # Returns a list of (input, question, answer) tuples
 def get_babi_dataset(path):
