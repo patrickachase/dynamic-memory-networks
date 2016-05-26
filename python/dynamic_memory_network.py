@@ -466,7 +466,7 @@ def run_baseline():
 
       print 'Total time: {}'.format(time.time() - start)
 
-      outfile = './outputs/lr_' + str(LEARNING_RATE) + '_hs_' + str(HIDDEN_SIZE) +'_e_' + str(MAX_EPOCHS) + '.txt'
+      outfile = './outputs/dmn/lr_' + str(LEARNING_RATE) + '_hs_' + str(HIDDEN_SIZE) +'_e_' + str(MAX_EPOCHS) + '.txt'
       f = open(outfile, "a")
       f.write('train_acc, ' + str(training_accuracy) + '\n')
       f.write('train_loss, ' + str(average_training_loss) + '\n')

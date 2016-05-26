@@ -314,6 +314,14 @@ def run_baseline():
       #   break
       print 'Total time: {}'.format(time.time() - start)
 
+      outfile = './outputs/rnn/lr_' + str(LEARNING_RATE) + '_hs_' + str(INPUT_HIDDEN_SIZE) +'_e_' + str(MAX_EPOCHS) + '.txt'
+      f = open(outfile, "a")
+      f.write('train_acc, ' + str(training_accuracy) + '\n')
+      f.write('train_loss, ' + str(average_training_loss) + '\n')
+      f.write('val_acc, ' + str(validation_accuracy) + '\n')
+      f.write('val_loss, ' + str(average_validation_loss) + '\n')
+      f.close()
+
     # Compute average loss on testing data with best weights
     saver.restore(sess, '../data/weights/rnn.weights')
 
