@@ -28,9 +28,9 @@ INPUT_HIDDEN_SIZE = 50
 QUESTION_HIDDEN_SIZE = 50
 ANSWER_HIDDEN_SIZE = 50
 EARLY_STOPPING = 2
-MAX_INPUT_LENGTH = 200
+MAX_INPUT_LENGTH = 100
 MAX_QUESTION_LENGTH = 20
-MAX_EPOCHS = 20
+MAX_EPOCHS = 100
 BATCH_SIZE = 100
 
 # Number of training elements to train on before an update is printed
@@ -81,9 +81,13 @@ def RNN(X, num_words_in_X, hidden_size, max_input_size):
 
   print "Length X: {}".format(len(X))
 
+  print "Squeezed: {}".format(squeezed[0])
+
   gru_cell = rnn_cell.GRUCell(num_units=hidden_size, input_size=WORD_VECTOR_LENGTH)
 
   output, state = rnn.rnn(gru_cell, squeezed, sequence_length=num_words_in_X, dtype=tf.float32)
+
+  state = tf.reshape(state, [BATCH_SIZE, hidden_size])
 
   print "State: {}".format(state)
 
@@ -94,7 +98,7 @@ def RNN(X, num_words_in_X, hidden_size, max_input_size):
 # where each element is a batch of BATCH_SIZE questions
 def batch_data(data):
   # Compute total number of batches for the data set
-  num_batches = len(data) / BATCH_SIZE + 1
+  num_batches = len(data) / BATCH_SIZE
 
   batched_data = []
 
@@ -143,6 +147,8 @@ def convert_to_vectors(batched_data, glove_dict):
 
       # Add input vectors
       for j in range(len(input)):
+        if j >= MAX_INPUT_LENGTH:
+          continue
         word = input[j]
 
         word_vector = get_word_vector(word, glove_dict)
@@ -155,6 +161,8 @@ def convert_to_vectors(batched_data, glove_dict):
 
       # Add question vectors
       for j in range(len(question)):
+        if j >= MAX_QUESTION_LENGTH:
+          continue
         word = question[j]
 
         word_vector = get_word_vector(word, glove_dict)
@@ -179,7 +187,7 @@ def convert_to_vectors(batched_data, glove_dict):
 
     batched_input_vecs.append(batch_input_vecs)
     batched_input_lengths.append(batch_input_lengths)
-    batched_question_vecs.append(batched_question_vecs)
+    batched_question_vecs.append(batch_question_vecs)
     batched_question_lengths.append(batch_question_lengths)
     batched_answer_vecs.append(batch_answer_vecs)
 
@@ -308,23 +316,25 @@ def run_baseline():
       for i in range(len(train_batches)):
 
         # Print all inputs
-        # print "Current input word vectors: {}".format(text_train[i])
-        # print "Current number of words in input: {}".format(num_words_in_inputs)
-        # print "Current question word vectors: {}".format(question_train[i])
-        # print "Current number of words in question: {}".format(num_words_in_question)
+        # print "Current input word vectors: {}".format(batched_input_vecs[i])
+        # print "Current number of words in input: {}".format(batched_input_lengths[i])
+        # print "Current question word vectors: {}".format(batched_question_vecs[i])
+        # print "Current number of words in question: {}".format(batched_question_lengths[i])
+        # print "Current answers: {}".format(batched_answer_vecs[i])
 
         # print i
         # print num_words_in_inputs
         # print len(num_words_in_inputs)
         # print np.shape(num_words_in_inputs)
-        loss, _, batch_prediction_probs, input_output_vec, input_state_vec, X_padded_input, question_output_vec, question_state_vec, X_padded_question, input_and_question_vec = sess.run(
-          [cost, optimizer, prediction_probs, input_output[-1], input_state,
-           X_input[-1], question_output[-1], question_state, Q_input[-1], input_and_question],
+        print "Running batch"
+        loss, _, batch_prediction_probs = sess.run(
+          [cost, optimizer, prediction_probs],
           feed_dict={input_placeholder: batched_input_vecs[i],
                      input_length_placeholder: batched_input_lengths[i],
                      question_placeholder: batched_question_vecs[i],
                      question_length_placeholder: batched_question_lengths[i],
                      labels_placeholder: batched_answer_vecs[i]})
+        print "Batch finished"
 
         # Print all outputs and intermediate steps for debugging
         # print "Current input matrix with all words and padding: {}".format(X_input)
@@ -344,7 +354,11 @@ def run_baseline():
 
         total_training_loss += loss
 
-        batch_accuracy = np.equal(batch_prediction_probs, batched_answer_vecs[i]).mean()
+        # print "predictions: {}".format(batch_prediction_probs)
+        # print "answers: {}".format(batched_answer_vecs[i])
+        # print "are equal {}".format(np.equal(np.argmax(batch_prediction_probs, axis=1), np.argmax(batched_answer_vecs[i], axis=1)))
+
+        batch_accuracy = np.equal(np.argmax(batch_prediction_probs, axis=1), np.argmax(batched_answer_vecs[i], axis=1)).mean()
 
         sum_accuracy += batch_accuracy
 
@@ -369,8 +383,6 @@ def run_baseline():
         # Check if prediction changed
         # if prev_prediction != current_pred[0]:
         #   print "Prediction changed"
-
-        prev_prediction = current_pred[0]
 
       average_training_loss = total_training_loss / len(train_batches)
       training_accuracy = sum_accuracy / len(train_batches)
