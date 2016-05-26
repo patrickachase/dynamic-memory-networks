@@ -27,14 +27,14 @@ NUM_CLASSES = 2
 INPUT_HIDDEN_SIZE = 50
 QUESTION_HIDDEN_SIZE = 50
 ANSWER_HIDDEN_SIZE = 50
-EARLY_STOPPING = 2
 MAX_INPUT_LENGTH = 100
 MAX_QUESTION_LENGTH = 20
 MAX_EPOCHS = 100
+
 BATCH_SIZE = 100
 
-# Number of training elements to train on before an update is printed
-UPDATE_LENGTH = 1000
+# Number of batches to train on before an update is printed
+UPDATE_LENGTH = 1
 
 
 #### END MODEL PARAMETERS ####
@@ -68,7 +68,6 @@ def add_placeholders():
 
 
 def RNN(X, num_words_in_X, hidden_size, input_size, max_input_size):
-
   # Split X into a list of tensors of length MAX_INPUT_LENGTH where each tensor is a BATCH_SIZExWORD_VECTOR_LENGTH vector
   X = tf.split(0, max_input_size, X)
 
@@ -226,8 +225,16 @@ def run_baseline():
   test_batches = batch_data(test)
 
   # Convert batches into vectors
-  batched_input_vecs, batched_input_lengths, batched_question_vecs, batched_question_lengths, batched_answer_vecs = convert_to_vectors(
+  train_batched_input_vecs, train_batched_input_lengths, train_batched_question_vecs, \
+  train_batched_question_lengths, train_batched_answer_vecs = convert_to_vectors(
     train_batches, glove_dict)
+
+  val_batched_input_vecs, val_batched_input_lengths, val_batched_question_vecs, \
+  val_batched_question_lengths, val_batched_answer_vecs = convert_to_vectors(validation_batches, glove_dict)
+
+  test_batched_input_vecs, test_batched_input_lengths, test_batched_question_vecs, \
+  test_batched_question_lengths, test_batched_answer_vecs = convert_to_vectors(
+    test_batches, glove_dict)
 
   # Print summary statistics
   print "Training samples: {}".format(len(train))
@@ -243,7 +250,8 @@ def run_baseline():
 
   # Initialize input module
   with tf.variable_scope("input"):
-    input_output, input_state, X_input = RNN(input_placeholder, input_length_placeholder, INPUT_HIDDEN_SIZE, WORD_VECTOR_LENGTH,
+    input_output, input_state, X_input = RNN(input_placeholder, input_length_placeholder, INPUT_HIDDEN_SIZE,
+                                             WORD_VECTOR_LENGTH,
                                              MAX_INPUT_LENGTH)
   # Initialize question module
   with tf.variable_scope("question"):
@@ -254,7 +262,7 @@ def run_baseline():
   input_and_question = tf.concat(1, [input_state, question_state])
 
   # Answer model
-  with tf.variable_scope("question"):
+  with tf.variable_scope("answer"):
     projections = answer_module(input_and_question)
 
   prediction_probs = tf.nn.softmax(projections)
@@ -271,7 +279,7 @@ def run_baseline():
 
   # Train over multiple epochs
   with tf.Session() as sess:
-    best_loss = float('inf')
+    best_validation_accuracy = float('inf')
     best_val_epoch = 0
 
     sess.run(init)
@@ -283,93 +291,98 @@ def run_baseline():
       ###
 
       total_training_loss = 0
-      sum_accuracy = 0
-
-      prev_prediction = 0
+      sum_training_accuracy = 0
 
       # Compute average loss on training data
       for i in range(len(train_batches)):
 
         loss, _, batch_prediction_probs = sess.run(
           [cost, optimizer, prediction_probs],
-          feed_dict={input_placeholder: batched_input_vecs[i],
-                     input_length_placeholder: batched_input_lengths[i],
-                     question_placeholder: batched_question_vecs[i],
-                     question_length_placeholder: batched_question_lengths[i],
-                     labels_placeholder: batched_answer_vecs[i]})
+          feed_dict={input_placeholder: train_batched_input_vecs[i],
+                     input_length_placeholder: train_batched_input_lengths[i],
+                     question_placeholder: train_batched_question_vecs[i],
+                     question_length_placeholder: train_batched_question_lengths[i],
+                     labels_placeholder: train_batched_answer_vecs[i]})
 
         total_training_loss += loss
 
-        batch_accuracy = np.equal(np.argmax(batch_prediction_probs, axis=1), np.argmax(batched_answer_vecs[i], axis=1)).mean()
+        batch_accuracy = np.equal(np.argmax(batch_prediction_probs, axis=1),
+                                  np.argmax(train_batched_answer_vecs[i], axis=1)).mean()
 
-        sum_accuracy += batch_accuracy
-
-        print "Current average training loss: {}".format(total_training_loss / (i + 1))
-        print "Current training accuracy: {}".format(sum_accuracy / (i + 1))
+        sum_training_accuracy += batch_accuracy
 
         # Print a training update
         if i % UPDATE_LENGTH == 0:
           print "Current average training loss: {}".format(total_training_loss / (i + 1))
-          print "Current training accuracy: {}".format(sum_accuracy / (i + 1))
+          print "Current training accuracy: {}".format(sum_training_accuracy / (i + 1))
 
       average_training_loss = total_training_loss / len(train_batches)
-      training_accuracy = sum_accuracy / len(train_batches)
-
-      validation_loss = float('inf')
+      training_accuracy = sum_training_accuracy / len(train_batches)
 
       total_validation_loss = 0
-      num_correct_val = 0
-      # Compute average loss on validation data
-      # for i in range(len(validation)):
-      #   num_words_in_inputs = [np.shape(text_val[i])[0]]
-      #   num_words_in_question = [np.shape(question_val[i])[0]]
-      #   loss, current_pred, probs, input_output_vec, input_state_vec, X_padded_input, question_output_vec, question_state_vec, X_padded_question, input_and_question_vec, W_out_mat, b_out_mat = sess.run(
-      #     [cost, prediction, prediction_probs, input_output[num_words_in_inputs[0] - 1], input_state, X_input,
-      #      question_output[num_words_in_question[0] - 1], question_state, Q_input, input_and_question, W_out, b_out],
-      #     feed_dict={input_placeholder: text_val[i],
-      #                input_length_placeholder: num_words_in_inputs,
-      #                question_placeholder: question_val[i],
-      #                question_length_placeholder: num_words_in_question,
-      #                labels_placeholder: answer_val[i]})
-      #
-      #   if current_pred == np.argmax(answer_val[i]):
-      #     num_correct_val = num_correct_val + 1
-      #
-      #   total_validation_loss = total_validation_loss + loss
+      sum_validation_accuracy = 0
 
-      average_validation_loss = total_validation_loss / len(validation)
-      validation_accuracy = float(num_correct_val) / len(validation)
+      # Compute average loss on validation data
+      for i in range(len(validation_batches)):
+        loss, batch_prediction_probs = sess.run(
+          [cost, prediction_probs],
+          feed_dict={input_placeholder: val_batched_input_vecs[i],
+                     input_length_placeholder: val_batched_input_lengths[i],
+                     question_placeholder: val_batched_question_vecs[i],
+                     question_length_placeholder: val_batched_question_lengths[i],
+                     labels_placeholder: val_batched_answer_vecs[i]})
+
+        total_validation_loss = total_validation_loss + loss
+
+        batch_accuracy = np.equal(np.argmax(batch_prediction_probs, axis=1),
+                                  np.argmax(val_batched_answer_vecs[i], axis=1)).mean()
+
+        sum_validation_accuracy += batch_accuracy
+
+      average_validation_loss = total_validation_loss / len(validation_batches)
+      validation_accuracy = sum_validation_accuracy / len(validation_batches)
 
       print 'Training loss: {}'.format(average_training_loss)
       print 'Training accuracy: {}'.format(training_accuracy)
       print 'Validation loss: {}'.format(average_validation_loss)
       print 'Validation accuracy: {}'.format(validation_accuracy)
-      if average_validation_loss < best_loss:
-        best_loss = average_validation_loss
+      if validation_accuracy < best_validation_accuracy:
+        best_validation_accuracy = validation_accuracy
         best_val_epoch = epoch
         saver.save(sess, '../data/weights/rnn.weights')
         print "Weights saved"
-      # if epoch - best_val_epoch > EARLY_STOPPING:
-      #   break
+
       print 'Total time: {}'.format(time.time() - start)
 
     # Compute average loss on testing data with best weights
     saver.restore(sess, '../data/weights/rnn.weights')
 
-    sess.run(accuracy,
-             feed_dict={input_placeholder: text_val, labels_placeholder: answer_val,
-                        initial_state: np.zeros(HIDDEN_SIZE)})
+    total_test_loss = 0
+    sum_test_accuracy = 0
+
+    # Compute average loss on test data
+    for i in range(len(test_batches)):
+      loss, batch_prediction_probs = sess.run(
+        [cost, prediction_probs],
+        feed_dict={input_placeholder: test_batched_input_vecs[i],
+                   input_length_placeholder: test_batched_input_lengths[i],
+                   question_placeholder: test_batched_question_vecs[i],
+                   question_length_placeholder: test_batched_question_lengths[i],
+                   labels_placeholder: test_batched_answer_vecs[i]})
+
+      total_validation_loss = total_validation_loss + loss
+
+      batch_accuracy = np.equal(np.argmax(batch_prediction_probs, axis=1),
+                                np.argmax(test_batched_answer_vecs[i], axis=1)).mean()
+
+      sum_test_accuracy += batch_accuracy
+
+    average_test_loss = total_test_loss / len(test_batches)
+    test_accuracy = sum_test_accuracy / len(test_batches)
 
     print '=-=' * 5
-    print 'Test perplexity: {}'.format(accuracy)
+    print 'Test accuracy: {}'.format(test_accuracy)
     print '=-=' * 5
-
-    # TODO add input loop so we can test and debug with our own examples
-    input = ""
-    while input:
-      # Run model
-
-      input = raw_input('> ')
 
 
 if __name__ == "__main__":
