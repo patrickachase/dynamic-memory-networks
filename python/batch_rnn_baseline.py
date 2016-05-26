@@ -67,11 +67,9 @@ def add_placeholders():
   return input_placeholder, input_length_placeholder, question_placeholder, question_length_placeholder, labels_placeholder
 
 
-def RNN(X, num_words_in_X, hidden_size, max_input_size):
+def RNN(X, num_words_in_X, hidden_size, input_size, max_input_size):
 
-  # Split X into a list of tensors of length MAX_INPUT_LENGTH where each tensor is a 1xWORD_VECTOR_LENGTH vector
-  # of the word vectors
-  # TODO change input to be a list of tensors of length MAX_INPUT_LENGTH where each tensor is a BATCH_SIZExWORD_VECTOR_LENGTH vector
+  # Split X into a list of tensors of length MAX_INPUT_LENGTH where each tensor is a BATCH_SIZExWORD_VECTOR_LENGTH vector
   X = tf.split(0, max_input_size, X)
 
   squeezed = []
@@ -79,17 +77,9 @@ def RNN(X, num_words_in_X, hidden_size, max_input_size):
   for i in range(len(X)):
     squeezed.append(tf.squeeze(X[i]))
 
-  print "Length X: {}".format(len(X))
-
-  print "Squeezed: {}".format(squeezed[0])
-
-  gru_cell = rnn_cell.GRUCell(num_units=hidden_size, input_size=WORD_VECTOR_LENGTH)
+  gru_cell = rnn_cell.GRUCell(num_units=hidden_size, input_size=input_size)
 
   output, state = rnn.rnn(gru_cell, squeezed, sequence_length=num_words_in_X, dtype=tf.float32)
-
-  state = tf.reshape(state, [BATCH_SIZE, hidden_size])
-
-  print "State: {}".format(state)
 
   return output, state, X
 
@@ -253,12 +243,12 @@ def run_baseline():
 
   # Initialize input module
   with tf.variable_scope("input"):
-    input_output, input_state, X_input = RNN(input_placeholder, input_length_placeholder, INPUT_HIDDEN_SIZE,
+    input_output, input_state, X_input = RNN(input_placeholder, input_length_placeholder, INPUT_HIDDEN_SIZE, WORD_VECTOR_LENGTH,
                                              MAX_INPUT_LENGTH)
   # Initialize question module
   with tf.variable_scope("question"):
     question_output, question_state, Q_input = RNN(question_placeholder, question_length_placeholder,
-                                                   QUESTION_HIDDEN_SIZE, MAX_QUESTION_LENGTH)
+                                                   QUESTION_HIDDEN_SIZE, WORD_VECTOR_LENGTH, MAX_QUESTION_LENGTH)
 
   # Concatenate input and question vectors
   input_and_question = tf.concat(1, [input_state, question_state])
