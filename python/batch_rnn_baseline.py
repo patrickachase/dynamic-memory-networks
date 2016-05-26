@@ -282,21 +282,6 @@ def run_baseline():
       start = time.time()
       ###
 
-      # Shuffle training data
-      # train_input_shuf = []
-      # train_question_shuf = []
-      # train_answer_shuf = []
-      # index_shuf = range(len(text_train))
-      # shuffle(index_shuf)
-      # for i in index_shuf:
-      #   train_input_shuf.append(text_train[i])
-      #   train_question_shuf.append(question_train[i])
-      #   train_answer_shuf.append(answer_train[i])
-      #
-      # text_train = train_input_shuf
-      # question_train = train_question_shuf
-      # answer_train = train_answer_shuf
-
       total_training_loss = 0
       sum_accuracy = 0
 
@@ -305,18 +290,6 @@ def run_baseline():
       # Compute average loss on training data
       for i in range(len(train_batches)):
 
-        # Print all inputs
-        # print "Current input word vectors: {}".format(batched_input_vecs[i])
-        # print "Current number of words in input: {}".format(batched_input_lengths[i])
-        # print "Current question word vectors: {}".format(batched_question_vecs[i])
-        # print "Current number of words in question: {}".format(batched_question_lengths[i])
-        # print "Current answers: {}".format(batched_answer_vecs[i])
-
-        # print i
-        # print num_words_in_inputs
-        # print len(num_words_in_inputs)
-        # print np.shape(num_words_in_inputs)
-        print "Running batch"
         loss, _, batch_prediction_probs = sess.run(
           [cost, optimizer, prediction_probs],
           feed_dict={input_placeholder: batched_input_vecs[i],
@@ -324,29 +297,8 @@ def run_baseline():
                      question_placeholder: batched_question_vecs[i],
                      question_length_placeholder: batched_question_lengths[i],
                      labels_placeholder: batched_answer_vecs[i]})
-        print "Batch finished"
-
-        # Print all outputs and intermediate steps for debugging
-        # print "Current input matrix with all words and padding: {}".format(X_input)
-        # print "Current input matrix with all words and padding: {}".format(X_padded_input)
-        # print "Current input matrix with all words and padding: {}".format(X_padded_question)
-        # print "Current input ouput vector: {}".format(input_output_vec)
-        # print "Current input state vector: {}".format(input_state_vec)
-        # print "Current question ouput vector: {}".format(question_output_vec)
-        # print "Current question state vector: {}".format(question_state_vec)
-        # print "Current concatenated input and question embedding vector: {}".format(input_and_question_vec)
-
-        # print "Current pred probs: {}".format(probs)
-        # print "Current pred: {}".format(current_pred[0])
-        # print "Current answer vector: {}".format(answer_train[i])
-        # print "Current answer: {}".format(np.argmax(answer_train[i]))
-        # print "Current loss: {}".format(loss)
 
         total_training_loss += loss
-
-        # print "predictions: {}".format(batch_prediction_probs)
-        # print "answers: {}".format(batched_answer_vecs[i])
-        # print "are equal {}".format(np.equal(np.argmax(batch_prediction_probs, axis=1), np.argmax(batched_answer_vecs[i], axis=1)))
 
         batch_accuracy = np.equal(np.argmax(batch_prediction_probs, axis=1), np.argmax(batched_answer_vecs[i], axis=1)).mean()
 
@@ -359,20 +311,6 @@ def run_baseline():
         if i % UPDATE_LENGTH == 0:
           print "Current average training loss: {}".format(total_training_loss / (i + 1))
           print "Current training accuracy: {}".format(sum_accuracy / (i + 1))
-          # print "Current input matrix with all words and padding: {}".format(X_input)
-          # print "Current input matrix with all words and padding: {}".format(X_padded_input)
-          # print "Current input matrix with all words and padding: {}".format(X_padded_question)
-          # print "Current input ouput vector: {}".format(input_output_vec)
-          # print "Current input state vector: {}".format(input_state_vec)
-          # print "Current question ouput vector: {}".format(question_output_vec)
-          # print "Current question state vector: {}".format(question_state_vec)
-          # print "Current concatenated input and question embedding vector: {}".format(input_and_question_vec)
-          # print "Current W: {}".format(W_out_mat)
-          # print "Current b: {}".format(b_out_mat)
-
-        # Check if prediction changed
-        # if prev_prediction != current_pred[0]:
-        #   print "Prediction changed"
 
       average_training_loss = total_training_loss / len(train_batches)
       training_accuracy = sum_accuracy / len(train_batches)
