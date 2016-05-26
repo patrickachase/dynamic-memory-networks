@@ -229,9 +229,14 @@ def episodic_memory_module(sentence_states, number_of_sentences, question_state)
         h = tf.mul(g, gru_state) + tf.mul(1 - g, h_prev)
 
         # TODO figure out if this works for batches of data
-        h = tf.cond(number_of_sentences >= j, lambda: tf.zeros([1, HIDDEN_SIZE]), lambda: h)
 
-        final_h = tf.cond(tf.equal(number_of_sentences, j - 1), lambda: h, lambda: final_h)
+        # Compute indices to copy through for
+        copy_cond = (j >= number_of_sentences)
+
+        # Only keep non zero indices if the sentence is within the size of the input for that element of the batch
+        h = tf.select(copy_cond, tf.zeros((BATCH_SIZE, HIDDEN_SIZE)), h)
+
+        final_h = tf.select(copy_cond, final_h, h)
 
     # Episode state is the final hidden state after pass over the data
     e = final_h
@@ -271,6 +276,32 @@ def get_end_of_sentences(words):
       end_of_sentences.append(i)
 
   return end_of_sentences
+
+def _copy_some_through(new_output, new_state):
+  # Use broadcasting select to determine which values should get
+  # the previous state & zero output, and which values should get
+  # a calculated state & output.
+  copy_cond = (time >= sequence_length)
+  return ([math_ops.select(copy_cond, zero_output, new_output)]
+          + [math_ops.select(copy_cond, old_s, new_s)
+             for (old_s, new_s) in zip(state, new_state)])
+
+def _maybe_copy_some_through():
+  """Run RNN step.  Pass through either no or some past state."""
+  new_output, new_state = call_cell()
+  new_state = (
+    list(_unpacked_state(new_state)) if state_is_tuple else [new_state])
+
+  if len(state) != len(new_state):
+    raise ValueError(
+      "Input and output state tuple lengths do not match: %d vs. %d"
+      % (len(state), len(new_state)))
+
+  return control_flow_ops.cond(
+    # if t < min_seq_len: calculate and return everything
+    time < min_sequence_length, lambda: [new_output] + new_state,
+    # else copy some of it through
+    lambda: _copy_some_through(new_output, new_state))
 
 
 def run_baseline():
