@@ -16,21 +16,23 @@ from get_babi_data import get_task_1_test
 from tensorflow.python.ops.seq2seq import sequence_loss
 from format_data import split_training_data, format_data, batch_data, convert_to_vectors, get_word_vector
 from random import shuffle
+from params_batch_rnn import parse_args
 
 #### MODEL PARAMETERS ####
 
-WORD_VECTOR_LENGTH = 50
-VOCAB_LENGTH = 10000
-LEARNING_RATE = 0.001
+params = parse_args()
+
+LEARNING_RATE = params['LEARNING_RATE']
+INPUT_HIDDEN_SIZE = params['INPUT_HIDDEN_SIZE']
+QUESTION_HIDDEN_SIZE = params['QUESTION_HIDDEN_SIZE']
+ANSWER_HIDDEN_SIZE = params['ANSWER_HIDDEN_SIZE']
+MAX_EPOCHS = params['MAX_EPOCHS']
+BATCH_SIZE = params['BATCH_SIZE']
+
 NUM_CLASSES = 2
-INPUT_HIDDEN_SIZE = 50
-QUESTION_HIDDEN_SIZE = 50
-ANSWER_HIDDEN_SIZE = 50
+WORD_VECTOR_LENGTH = 50
 MAX_INPUT_LENGTH = 100
 MAX_QUESTION_LENGTH = 20
-MAX_EPOCHS = 100
-
-BATCH_SIZE = 100
 
 # Number of batches to train on before an update is printed
 UPDATE_LENGTH = 1
