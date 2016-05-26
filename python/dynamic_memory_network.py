@@ -212,8 +212,9 @@ def episodic_memory_module(sentence_states, number_of_sentences, question_state)
         # Compute z for each batch
         # Z is BATCH_SIZE x (7 * HIDDEN_SIZE + 2)
         Z = tf.concat(1, [c_t, m_prev, q, tf.mul(c_t, q), tf.mul(c_t, m_prev), tf.abs(tf.sub(c_t, q)),
-                          tf.abs(tf.sub(c_t, m_prev)), tf.matmul(c_t, tf.matmul(W_b, tf.transpose(q))),
-                          tf.matmul(c_t, tf.matmul(W_b, tf.transpose(m_prev)))])
+                          tf.abs(tf.sub(c_t, m_prev)),
+                          tf.reshape(tf.reduce_sum(tf.mul(tf.matmul(c_t, W_b), q), 1), (BATCH_SIZE, 1)),
+                          tf.reshape(tf.reduce_sum(tf.mul(tf.matmul(c_t, W_b), m_prev), 1), (BATCH_SIZE, 1))])
 
         # Compute G
         attention_gate_hidden_state = tf.tanh(tf.add(tf.matmul(Z, W_1), b_1))
@@ -277,6 +278,7 @@ def get_end_of_sentences(words):
 
   return end_of_sentences
 
+
 def _copy_some_through(new_output, new_state):
   # Use broadcasting select to determine which values should get
   # the previous state & zero output, and which values should get
@@ -285,6 +287,7 @@ def _copy_some_through(new_output, new_state):
   return ([math_ops.select(copy_cond, zero_output, new_output)]
           + [math_ops.select(copy_cond, old_s, new_s)
              for (old_s, new_s) in zip(state, new_state)])
+
 
 def _maybe_copy_some_through():
   """Run RNN step.  Pass through either no or some past state."""
@@ -496,13 +499,13 @@ def run_baseline():
     print 'Test accuracy: {}'.format(test_accuracy)
     print '=-=' * 5
 
-
     # TODO add input loop so we can test and debug with our own examples
     input = ""
     while input:
       # Run model
 
       input = raw_input('> ')
+
 
 if __name__ == "__main__":
   run_baseline()
