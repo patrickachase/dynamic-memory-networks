@@ -346,7 +346,7 @@ def run_baseline():
       print 'Training accuracy: {}'.format(training_accuracy)
       print 'Validation loss: {}'.format(average_validation_loss)
       print 'Validation accuracy: {}'.format(validation_accuracy)
-      if validation_accuracy < best_validation_accuracy:
+      if validation_accuracy > best_validation_accuracy:
         best_validation_accuracy = validation_accuracy
         best_val_epoch = epoch
         saver.save(sess, '../data/weights/rnn.weights')
