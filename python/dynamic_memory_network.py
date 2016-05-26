@@ -23,7 +23,6 @@ from params import parse_args
 params = parse_args()
 
 WORD_VECTOR_LENGTH = 50
-VOCAB_LENGTH = 10000
 NUM_CLASSES = 2
 MAX_EPISODES = 3
 MAX_INPUT_SENTENCES = 40
@@ -466,6 +465,14 @@ def run_baseline():
         print "Weights saved"
 
       print 'Total time: {}'.format(time.time() - start)
+
+      outfile = './outputs/lr_' + str(LEARNING_RATE) + '_hs_' + str(HIDDEN_SIZE) +'_e_' + str(MAX_EPOCHS) + '.txt'
+      f = open(outfile, "a")
+      f.write('train_acc, ' + str(training_accuracy) + '\n')
+      f.write('train_loss, ' + str(average_training_loss) + '\n')
+      f.write('val_acc, ' + str(validation_accuracy) + '\n')
+      f.write('val_loss, ' + str(average_validation_loss) + '\n')
+      f.close()
 
     # Compute average loss on testing data with best weights
     saver.restore(sess, '../data/weights/rnn.weights')
