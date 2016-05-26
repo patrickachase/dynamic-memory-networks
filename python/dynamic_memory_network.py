@@ -14,8 +14,7 @@ from get_glove import load_glove_vectors
 from get_babi_data import get_task_1_train
 from get_babi_data import get_task_1_test
 from tensorflow.python.ops.seq2seq import sequence_loss
-from format_data import split_training_data
-from format_data import format_data
+from format_data import split_training_data, format_data, batch_data, convert_to_vectors_with_sentences, get_word_vector
 from random import shuffle
 from params import parse_args
 
@@ -41,6 +40,8 @@ DROPOUT = params['DROPOUT']
 OUT_DIR = params['OUT_DIR']
 TASK = params['TASK']
 UPDATE_LENGTH = params['UPDATE_LENGTH']
+BATCH_SIZE = params['BATCH_SIZE']
+
 
 #### END MODEL PARAMETERS ####
 
@@ -70,38 +71,39 @@ def add_placeholders():
 
   """
 
-  input_placeholder = tf.placeholder(tf.float32, shape=[None, WORD_VECTOR_LENGTH])
-  end_of_sentences_placeholder = tf.placeholder(tf.int32, shape=[None])
-  question_placeholder = tf.placeholder(tf.float32, shape=[None, WORD_VECTOR_LENGTH])
-  labels_placeholder = tf.placeholder(tf.float32, shape=[None, NUM_CLASSES])
-  return input_placeholder, end_of_sentences_placeholder, question_placeholder, labels_placeholder
+  input_placeholder = tf.placeholder(tf.float32, shape=[MAX_INPUT_LENGTH, BATCH_SIZE, WORD_VECTOR_LENGTH])
+  input_length_placeholder = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
+  end_of_sentences_placeholder = tf.placeholder(tf.int32, shape=[MAX_INPUT_SENTENCES, BATCH_SIZE])
+  num_sentences_placeholder = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
+  question_placeholder = tf.placeholder(tf.float32, shape=[MAX_QUESTION_LENGTH, BATCH_SIZE, WORD_VECTOR_LENGTH])
+  question_length_placeholder = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
+  labels_placeholder = tf.placeholder(tf.float32, shape=[BATCH_SIZE, NUM_CLASSES])
+  return input_placeholder, input_length_placeholder, end_of_sentences_placeholder, num_sentences_placeholder, \
+         question_placeholder, question_length_placeholder, labels_placeholder
 
 
-def RNN(X, hidden_size, max_input_size):
-  # Compute the number of words in X
-  num_words_in_X = tf.gather(tf.shape(X), [0])
+def RNN(X, num_words_in_X, hidden_size, input_vector_size, max_input_size):
+  """
+  Passes the input data through an RNN and outputs the final states.
 
-  # Reshape `X` as a vector. -1 means "set this dimension automatically".
-  X_as_vector = tf.reshape(X, [-1])
+  X: Input is a MAX_INPUT_LENGTH X BATCH_SIZE X WORD_VECTOR_LENGTH matrix
+  num_words_in_X: Number of words in X, which is needed because X is zero padded
+  hidden_size: The dimensionality of the hidden layer of the RNN
+  input_vector_size: This is the dimensionality of each input vector, in this case it is WORD_VECTOR_LENGTH
+  max_input_size: This is the max number of input vectors that can be passed in to the RNN.
 
-  # Create another vector containing zeroes to pad `X` to (MAX_INPUT_LENGTH * WORD_VECTOR_LENGTH) elements.
-  zero_padding = tf.zeros([max_input_size * WORD_VECTOR_LENGTH] - tf.shape(X_as_vector), dtype=X.dtype)
+  """
 
-  # Concatenate `X_as_vector` with the padding.
-  X_padded_as_vector = tf.concat(0, [X_as_vector, zero_padding])
+  # Split X into a list of tensors of length max_input_size where each tensor is a BATCH_SIZE x input_vector_size vector
+  X = tf.split(0, max_input_size, X)
 
-  # Reshape the padded vector to the desired shape.
-  X_padded = tf.reshape(X_padded_as_vector, [max_input_size, WORD_VECTOR_LENGTH])
+  squeezed = []
+  for i in range(len(X)):
+    squeezed.append(tf.squeeze(X[i]))
 
-  # Split X into a list of tensors of length MAX_INPUT_LENGTH where each tensor is a 1xWORD_VECTOR_LENGTH vector
-  # of the word vectors
-  X = tf.split(0, max_input_size, X_padded)
-
-  gru_cell = rnn_cell.GRUCell(num_units=hidden_size, input_size=WORD_VECTOR_LENGTH)
-
-  outputs, state = rnn.rnn(gru_cell, X, sequence_length=num_words_in_X, dtype=tf.float32)
-
-  return outputs, state
+  gru_cell = rnn_cell.GRUCell(num_units=hidden_size, input_size=input_vector_size)
+  output, state = rnn.rnn(gru_cell, squeezed, sequence_length=num_words_in_X, dtype=tf.float32)
+  return output, state
 
 
 def count_positive_and_negative(answer_vecs):
@@ -116,46 +118,67 @@ def count_positive_and_negative(answer_vecs):
   return num_positive, num_negative
 
 
-# Takes in an input matrix of size (number of words in input) x (WORD_VECTOR_LENGTH) with the input word vectors
-# and a tensor the length of the number of sentences in the input with the index of the word that ends each
-# sentence and returns a list of the states after the end of each sentence to be fed to other modules.
-def input_module(input_placeholder, index_end_of_sentences):
-  # Get outputs after every word
-  outputs, state = RNN(input_placeholder, HIDDEN_SIZE, MAX_INPUT_LENGTH)
+def input_module(input_placeholder, input_length_placeholder, end_of_sentences_placeholder):
+  """
+  Returns a matrix of size MAX_INPUT_SENTENCES x BATCH_SIZE x HIDDEN_SIZE with the hidden states for each sentence
+  for each example and a matrix of size BATCH_SIZE with the number of sentences in each example
 
-  # Convert list of outputs into a tensor of dimension (MAX_INPUT_LENGTH) x (INPUT_HIDDEN_SIZE)
+  X: Input is a MAX_INPUT_LENGTH X BATCH_SIZE X WORD_VECTOR_LENGTH matrix with the words for each example in the batch
+  input_length_placeholder: Matrix of BATCH_SIZE x 1 with the number of words in each example
+  index_end_of_sentences: A matrix of MAX_INPUT_SENTENCES x BATCH_SIZE with the index of the end of each sentence for each example
+
+  """
+
+  # Get outputs after every word
+  # Outputs is a list of length MAX_INPUT_LENGTH where each element is BATCH_SIZE x HIDDEN_SIZE
+  outputs, state = RNN(input_placeholder, input_length_placeholder, HIDDEN_SIZE, WORD_VECTOR_LENGTH, MAX_INPUT_LENGTH)
+
+  # Convert list of outputs into a tensor of dimension MAX_INPUT_LENGTH x BATCH_SIZE x INPUT_HIDDEN_SIZE
   output_mat = tf.concat(0, outputs)
 
-  # Only project the state at the end of each sentence
-  sentence_representations_mat = tf.gather(output_mat, index_end_of_sentences)
+  # Only project the states at the end of each sentence
+  # Sentences matrix is now MAX_INPUT_SENTENCES x BATCH_SIZE x HIDDEN_SIZE
+  # TODO figure out if this is the best way to get the state at the end of each sentence
+  sentence_representations_mat = tf.gather(output_mat, end_of_sentences_placeholder)
 
-  # Reshape `X` as a vector. -1 means "set this dimension automatically".
-  sentences_as_vector = tf.reshape(sentence_representations_mat, [-1])
-
-  # Create another vector containing zeroes to pad `X` to (MAX_INPUT_LENGTH * WORD_VECTOR_LENGTH) elements.
-  zero_padding = tf.zeros([MAX_INPUT_SENTENCES * HIDDEN_SIZE] - tf.shape(sentences_as_vector),
-                          dtype=sentences_as_vector.dtype)
-
-  # Concatenate `X_as_vector` with the padding.
-  sentences_padded_as_vector = tf.concat(0, [sentences_as_vector, zero_padding])
-
-  # Reshape the padded vector to the desired shape.
-  sentences_padded = tf.reshape(sentences_padded_as_vector, [MAX_INPUT_SENTENCES, WORD_VECTOR_LENGTH])
-
-  # Split X into a list of tensors of length MAX_INPUT_LENGTH where each tensor is a 1xWORD_VECTOR_LENGTH vector
-  # of the word vectors
-  sentence_representations = tf.split(0, MAX_INPUT_SENTENCES, sentences_padded)
-
-  return sentence_representations, tf.shape(sentence_representations_mat)[0]
+  return sentence_representations_mat
 
 
-def question_module(question_placeholder):
-  outputs, state = RNN(question_placeholder, HIDDEN_SIZE, MAX_QUESTION_LENGTH)
+def question_module(question_placeholder, question_length_placeholder):
+  """
+  Returns a matrix of BATCH_SIZE x HIDDEN_SIZE with the hidden states for each question in the batch
+
+  question_placeholder: Matrix of MAX_QUESTION_LENGTH X BATCH_SIZE X WORD_VECTOR_LENGTH matrix with the words for each question in the batch
+  question_length_placeholder: Matrix of BATCH_SIZE x 1 with the number of words in each question
+
+  """
+
+  outputs, state = RNN(question_placeholder, question_length_placeholder, HIDDEN_SIZE, WORD_VECTOR_LENGTH,
+                       MAX_QUESTION_LENGTH)
 
   return state
 
 
 def episodic_memory_module(sentence_states, number_of_sentences, question_state):
+  """
+  Returns a matrix of size BATCH_SIZE x HIDDEN_SIZE with the memory state for each input and question in the batch
+
+  sentence_states: Matrix of MAX_INPUT_SENTENCES x BATCH_SIZE x HIDDEN_SIZE with the states at the end of each sentence for each example in the batch
+  number_of_sentences: Matrix of BATCH_SIZE x 1 with the number of sentences in each example
+  question_state: A matrix of BATCH_SIZE x HIDDEN_SIZE with the hidden states for each question in the batch
+
+  """
+
+  # Split sentence states into a list of length MAX_INPUT_SENTENCES where each element is BATCH_SIZE x HIDDEN_SIZE
+  sentence_states = tf.split(0, MAX_INPUT_SENTENCES, sentence_states)
+
+  squeezed = []
+  for i in range(len(sentence_states)):
+    squeezed.append(tf.squeeze(sentence_states[i]))
+
+  sentence_states = squeezed
+
+  # Each element of memory states will be BATCH_SIZE x HIDDEN_SIZE
   memory_states = []
 
   q = question_state
@@ -170,8 +193,8 @@ def episodic_memory_module(sentence_states, number_of_sentences, question_state)
 
     # Initialize first hidden state for episode to be zeros
     # TODO figure out if this is the right thing to do
-    h = tf.zeros([1, HIDDEN_SIZE])
-    final_h = tf.zeros([1, HIDDEN_SIZE])
+    h = tf.zeros([BATCH_SIZE, HIDDEN_SIZE])
+    final_h = tf.zeros([BATCH_SIZE, HIDDEN_SIZE])
 
     # Loop over the sentences for each episode
     for j in range(MAX_INPUT_SENTENCES):
@@ -186,13 +209,16 @@ def episodic_memory_module(sentence_states, number_of_sentences, question_state)
         b_2 = tf.get_variable("b_2", shape=(1, 1))
         gru_cell_episode = rnn_cell.GRUCell(num_units=HIDDEN_SIZE)
 
-        # Compute z
-        z = tf.concat(1, [c_t, m_prev, q, tf.mul(c_t, q), tf.mul(c_t, m_prev), tf.abs(tf.sub(c_t, q)),
+        # Compute z for each batch
+        # Z is BATCH_SIZE x (7 * HIDDEN_SIZE + 2)
+        Z = tf.concat(1, [c_t, m_prev, q, tf.mul(c_t, q), tf.mul(c_t, m_prev), tf.abs(tf.sub(c_t, q)),
                           tf.abs(tf.sub(c_t, m_prev)), tf.matmul(c_t, tf.matmul(W_b, tf.transpose(q))),
                           tf.matmul(c_t, tf.matmul(W_b, tf.transpose(m_prev)))])
 
         # Compute G
-        attention_gate_hidden_state = tf.tanh(tf.add(tf.matmul(z, W_1), b_1))
+        attention_gate_hidden_state = tf.tanh(tf.add(tf.matmul(Z, W_1), b_1))
+
+        # g is BATCH_SIZE x 1 where each value signifies the gate for sentence j for that batch
         g = tf.sigmoid(tf.add(tf.matmul(attention_gate_hidden_state, W_2), b_2))
 
         # Compute next hidden state
@@ -200,9 +226,9 @@ def episodic_memory_module(sentence_states, number_of_sentences, question_state)
 
         output, gru_state = gru_cell_episode(c_t, h_prev)
 
-        h = g * gru_state + (1 - g) * h_prev
+        h = tf.mul(g, gru_state) + tf.mul(1 - g, h_prev)
 
-        # TODO fix so this doesnt run for max sentences every time
+        # TODO figure out if this works for batches of data
         h = tf.cond(number_of_sentences >= j, lambda: tf.zeros([1, HIDDEN_SIZE]), lambda: h)
 
         final_h = tf.cond(tf.equal(number_of_sentences, j - 1), lambda: h, lambda: final_h)
@@ -219,12 +245,19 @@ def episodic_memory_module(sentence_states, number_of_sentences, question_state)
   return m
 
 
-def answer_module(episodic_memory_state):
+def answer_module(episodic_memory_states):
+  """
+  Returns a matrix of size BATCH_SIZE x NUM_CLASSES with the unscaled probabilities for each class
+
+  episodic_memory_state: Matrix of BATCH_SIZE x HIDDEN_SIZE with the memory state for each input and question in the batch
+
+  """
+
   with tf.variable_scope("answer_module"):
     W_out = tf.get_variable("W_out", shape=(HIDDEN_SIZE, NUM_CLASSES))
     b_out = tf.get_variable("b_out", shape=(1, NUM_CLASSES))
 
-  projections = tf.matmul(episodic_memory_state, W_out) + b_out
+  projections = tf.matmul(episodic_memory_states, W_out) + b_out
 
   return projections
 
@@ -241,6 +274,10 @@ def get_end_of_sentences(words):
 
 
 def run_baseline():
+  """
+  Main function which loads in data, runs the model, and prints out statistics
+
+  """
 
   # Get train dataset for task 6
   train_total = get_task_6_train()
@@ -254,45 +291,59 @@ def run_baseline():
   glove_dict = load_glove_vectors()
 
   # Split data into batches
+  train_batches = batch_data(train, BATCH_SIZE)
+  validation_batches = batch_data(validation, BATCH_SIZE)
+  test_batches = batch_data(test, BATCH_SIZE)
 
-  # Get data into word vector format
-  text_train, question_train, answer_train = format_data(train, glove_dict)
-  text_val, question_val, answer_val = format_data(validation, glove_dict)
-  text_test, question_test, answer_test = format_data(test, glove_dict)
+  # Convert batches into vectors
+  train_batched_input_vecs, train_batched_input_lengths, train_batched_end_of_sentences, train_batched_num_sentences, train_batched_question_vecs, \
+  train_batched_question_lengths, train_batched_answer_vecs = convert_to_vectors_with_sentences(
+    train_batches, glove_dict, MAX_INPUT_LENGTH, MAX_INPUT_SENTENCES, MAX_QUESTION_LENGTH)
 
-  num_positive_train, num_negative_train = count_positive_and_negative(answer_train)
+  val_batched_input_vecs, val_batched_input_lengths, val_batched_end_of_sentences, val_batched_num_sentences, val_batched_question_vecs, \
+  val_batched_question_lengths, val_batched_answer_vecs = convert_to_vectors_with_sentences(validation_batches,
+                                                                                            glove_dict,
+                                                                                            MAX_INPUT_LENGTH,
+                                                                                            MAX_INPUT_SENTENCES,
+                                                                                            MAX_QUESTION_LENGTH)
+
+  test_batched_input_vecs, test_batched_input_lengths, test_batched_end_of_sentences, test_batched_num_sentences, test_batched_question_vecs, \
+  test_batched_question_lengths, test_batched_answer_vecs = convert_to_vectors_with_sentences(
+    test_batches, glove_dict, MAX_INPUT_LENGTH, MAX_INPUT_SENTENCES, MAX_QUESTION_LENGTH)
 
   # Print summary statistics
   print "Training samples: {}".format(len(train))
-  print "Positive training samples: {}".format(num_positive_train)
-  print "Negative training samples: {}".format(num_negative_train)
   print "Validation samples: {}".format(len(validation))
   print "Testing samples: {}".format(len(test))
+  print "Batch size: {}".format(BATCH_SIZE)
+  print "Training number of batches: {}".format(len(train_batches))
+  print "Validation number of batches: {}".format(len(validation_batches))
+  print "Test number of batches: {}".format(len(test_batches))
 
   # Add placeholders
-  input_placeholder, end_of_sentences_placeholder, question_placeholder, labels_placeholder, = add_placeholders()
+  input_placeholder, input_length_placeholder, end_of_sentences_placeholder, num_sentences_placeholder, question_placeholder, \
+  question_length_placeholder, labels_placeholder = add_placeholders()
 
   # Input module
   with tf.variable_scope("input"):
-    sentence_states, number_of_sentences = input_module(input_placeholder, end_of_sentences_placeholder)
+    sentence_states = input_module(input_placeholder, input_length_placeholder, end_of_sentences_placeholder)
 
   # Question module
   with tf.variable_scope("question"):
-    question_state = question_module(question_placeholder)
+    question_state = question_module(question_placeholder, question_length_placeholder)
 
-  # Episodic memory moduel
+  # Episodic memory module
   with tf.variable_scope("episode"):
-    episodic_memory_state = episodic_memory_module(sentence_states, number_of_sentences, question_state)
+    episodic_memory_state = episodic_memory_module(sentence_states, num_sentences_placeholder, question_state)
 
   # Answer module
   with tf.variable_scope("answer"):
     projections = answer_module(episodic_memory_state)
 
-  # To get predictions perform a max over probabilities
   prediction_probs = tf.nn.softmax(projections)
 
   # Compute loss
-  cost = tf.nn.softmax_cross_entropy_with_logits(projections, labels_placeholder)
+  cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(projections, labels_placeholder))
 
   # Add optimizer
   optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE).minimize(cost)
@@ -303,7 +354,7 @@ def run_baseline():
 
   # Train over multiple epochs
   with tf.Session() as sess:
-    best_loss = float('inf')
+    best_validation_accuracy = float('inf')
     best_val_epoch = 0
 
     sess.run(init)
@@ -314,135 +365,106 @@ def run_baseline():
       start = time.time()
       ###
 
-      # Shuffle training data
-      # TODO put this in a function
-      train_shuf = []
-      train_input_shuf = []
-      train_question_shuf = []
-      train_answer_shuf = []
-      index_shuf = range(len(text_train))
-      shuffle(index_shuf)
-      for i in index_shuf:
-        train_shuf.append(train[i])
-        train_input_shuf.append(text_train[i])
-        train_question_shuf.append(question_train[i])
-        train_answer_shuf.append(answer_train[i])
-
-      train = train_shuf
-      text_train = train_input_shuf
-      question_train = train_question_shuf
-      answer_train = train_answer_shuf
-
       total_training_loss = 0
-      num_correct = 0
-
-      prev_prediction = 0
+      sum_training_accuracy = 0
 
       # Compute average loss on training data
-      for i in range(len(train)):
+      for i in range(len(train_batches)):
 
-        index_end_of_sentences = get_end_of_sentences(train[i][0])
+        loss, _, batch_prediction_probs = sess.run(
+          [cost, optimizer, prediction_probs],
+          feed_dict={input_placeholder: train_batched_input_vecs[i],
+                     input_length_placeholder: train_batched_input_lengths[i],
+                     end_of_sentences_placeholder: train_batched_end_of_sentences[i],
+                     num_sentences_placeholder: train_batched_num_sentences[i],
+                     question_placeholder: train_batched_question_vecs[i],
+                     question_length_placeholder: train_batched_question_lengths[i],
+                     labels_placeholder: train_batched_answer_vecs[i]})
 
-        # print "Training example: {}".format(train[i])
-        # print "Number of words in input: {}".format(np.shape(text_train[i])[0])
-        # print "Number of words in question: {}".format(np.shape(question_train[i])[0])
-        # print "Ends of sentences: {}".format(index_end_of_sentences)
+        total_training_loss += loss
 
-        loss, probs, _, sentence_states_out, number_of_sentences_out, question_state_out, episodic_memory_state_out = sess.run(
-          [cost, prediction_probs, optimizer, sentence_states[-1], number_of_sentences, question_state,
-           episodic_memory_state],
-          feed_dict={input_placeholder: text_train[i],
-                     end_of_sentences_placeholder: index_end_of_sentences,
-                     question_placeholder: question_train[i],
-                     labels_placeholder: answer_train[i]})
+        batch_accuracy = np.equal(np.argmax(batch_prediction_probs, axis=1),
+                                  np.argmax(train_batched_answer_vecs[i], axis=1)).mean()
 
-        # Print all outputs and intermediate steps for debugging
-        # print "Current sentence states: {}".format(sentence_states_out)
-        # print "Current number of sentences: {}".format(number_of_sentences_out)
-        # print "Current question vector: {}".format(question_state_out)
-        # print "Current episodic memory vector: {}".format(episodic_memory_state_out)
-
-        # print "Current pred probs: {}".format(probs)
-        # print "Current pred: {}".format(np.argmax(probs))
-        # print "Current answer vector: {}".format(answer_train[i])
-        # print "Current answer: {}".format(np.argmax(answer_train[i]))
-        # print "Current loss: {}".format(loss)
-
-        if np.argmax(probs) == np.argmax(answer_train[i]):
-          num_correct = num_correct + 1
-          #print "Correct"
+        sum_training_accuracy += batch_accuracy
 
         # Print a training update
         if i % UPDATE_LENGTH == 0:
           print "Current average training loss: {}".format(total_training_loss / (i + 1))
-          print "Current training accuracy: {}".format(float(num_correct) / (i + 1))
+          print "Current training accuracy: {}".format(sum_training_accuracy / (i + 1))
 
-        total_training_loss = total_training_loss + loss
-
-        # Check if prediction changed
-        # if prev_prediction != current_pred[0]:
-        #   print "Prediction changed"
-
-        prev_prediction = np.argmax(probs)
-
-      average_training_loss = total_training_loss / len(train)
-      training_accuracy = float(num_correct) / len(train)
-
-      validation_loss = float('inf')
+      average_training_loss = total_training_loss / len(train_batches)
+      training_accuracy = sum_training_accuracy / len(train_batches)
 
       total_validation_loss = 0
-      num_correct_val = 0
+      sum_validation_accuracy = 0
+
       # Compute average loss on validation data
-      for i in range(len(validation)):
-
-        index_end_of_sentences = get_end_of_sentences(validation[i][0])
-        loss, probs = sess.run(
+      for i in range(len(validation_batches)):
+        loss, batch_prediction_probs = sess.run(
           [cost, prediction_probs],
-          feed_dict={input_placeholder: text_train[i],
-                     end_of_sentences_placeholder: index_end_of_sentences,
-                     question_placeholder: question_train[i],
-                     labels_placeholder: answer_train[i]})
+          feed_dict={input_placeholder: val_batched_input_vecs[i],
+                     input_length_placeholder: val_batched_input_lengths[i],
+                     end_of_sentences_placeholder: val_batched_end_of_sentences[i],
+                     num_sentences_placeholder: val_batched_num_sentences[i],
+                     question_placeholder: val_batched_question_vecs[i],
+                     question_length_placeholder: val_batched_question_lengths[i],
+                     labels_placeholder: val_batched_answer_vecs[i]})
 
-        if np.argmax(probs) == np.argmax(answer_val[i]):
-          num_correct_val = num_correct_val + 1
+        total_validation_loss += loss
 
-        total_validation_loss = total_validation_loss + loss
+        batch_accuracy = np.equal(np.argmax(batch_prediction_probs, axis=1),
+                                  np.argmax(val_batched_answer_vecs[i], axis=1)).mean()
 
-      average_validation_loss = total_validation_loss / len(validation)
-      validation_accuracy = float(num_correct_val) / len(validation)
+        sum_validation_accuracy += batch_accuracy
 
-      f = open('outputs.txt', 'a+')
-      output_string = str(average_training_loss) + '\t'
-      output_string += str(training_accuracy) + '\t'
-      output_string += str(average_validation_loss) + '\t'
-      output_string += str(validation_accuracy) + '\n'
-      f.write(output_string)
+      average_validation_loss = total_validation_loss / len(validation_batches)
+      validation_accuracy = sum_validation_accuracy / len(validation_batches)
 
       print 'Training loss: {}'.format(average_training_loss)
       print 'Training accuracy: {}'.format(training_accuracy)
       print 'Validation loss: {}'.format(average_validation_loss)
       print 'Validation accuracy: {}'.format(validation_accuracy)
-      if average_validation_loss < best_loss:
-        best_loss = average_validation_loss
+      if validation_accuracy > best_validation_accuracy:
+        best_validation_accuracy = validation_accuracy
         best_val_epoch = epoch
         saver.save(sess, '../data/weights/rnn.weights')
         print "Weights saved"
-      # if epoch - best_val_epoch > EARLY_STOPPING:
-      #   break
-      print 'Total time: {}'.format(time.time() - start)
 
-      f.close()
+      print 'Total time: {}'.format(time.time() - start)
 
     # Compute average loss on testing data with best weights
     saver.restore(sess, '../data/weights/rnn.weights')
 
-    sess.run(accuracy,
-             feed_dict={input_placeholder: text_val, labels_placeholder: answer_val,
-                        initial_state: np.zeros(HIDDEN_SIZE)})
+    total_test_loss = 0
+    sum_test_accuracy = 0
+
+    # Compute average loss on test data
+    for i in range(len(test_batches)):
+      loss, batch_prediction_probs = sess.run(
+        [cost, prediction_probs],
+        feed_dict={input_placeholder: test_batched_input_vecs[i],
+                   input_length_placeholder: test_batched_input_lengths[i],
+                   end_of_sentences_placeholder: test_batched_end_of_sentences[i],
+                   num_sentences_placeholder: test_batched_num_sentences[i],
+                   question_placeholder: test_batched_question_vecs[i],
+                   question_length_placeholder: test_batched_question_lengths[i],
+                   labels_placeholder: test_batched_answer_vecs[i]})
+
+      total_test_loss += loss
+
+      batch_accuracy = np.equal(np.argmax(batch_prediction_probs, axis=1),
+                                np.argmax(test_batched_answer_vecs[i], axis=1)).mean()
+
+      sum_test_accuracy += batch_accuracy
+
+    average_test_loss = total_test_loss / len(test_batches)
+    test_accuracy = sum_test_accuracy / len(test_batches)
 
     print '=-=' * 5
-    print 'Test perplexity: {}'.format(accuracy)
+    print 'Test accuracy: {}'.format(test_accuracy)
     print '=-=' * 5
+
 
     # TODO add input loop so we can test and debug with our own examples
     input = ""
@@ -450,7 +472,6 @@ def run_baseline():
       # Run model
 
       input = raw_input('> ')
-
 
 if __name__ == "__main__":
   run_baseline()

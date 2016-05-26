@@ -246,7 +246,7 @@ def run_baseline():
                      question_length_placeholder: val_batched_question_lengths[i],
                      labels_placeholder: val_batched_answer_vecs[i]})
 
-        total_validation_loss = total_validation_loss + loss
+        total_validation_loss += loss
 
         batch_accuracy = np.equal(np.argmax(batch_prediction_probs, axis=1),
                                   np.argmax(val_batched_answer_vecs[i], axis=1)).mean()
@@ -284,7 +284,7 @@ def run_baseline():
                    question_length_placeholder: test_batched_question_lengths[i],
                    labels_placeholder: test_batched_answer_vecs[i]})
 
-      total_validation_loss = total_validation_loss + loss
+      total_test_loss += loss
 
       batch_accuracy = np.equal(np.argmax(batch_prediction_probs, axis=1),
                                 np.argmax(test_batched_answer_vecs[i], axis=1)).mean()

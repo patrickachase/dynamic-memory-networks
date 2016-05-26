@@ -10,6 +10,7 @@ TASK = 6
 HIDDEN_SIZE = 50
 ATTENTION_GATE_HIDDEN_SIZE = 50
 UPDATE_LENGTH = 100
+BATCH_SIZE = 100
 
 def parse_args():
   """
@@ -26,6 +27,7 @@ def parse_args():
   parser.add_argument('-hidden_size', default=HIDDEN_SIZE, help='hidden size', type=int)
   parser.add_argument('-attention_hidden_size', default=ATTENTION_GATE_HIDDEN_SIZE, help='hidden size of attention gate', type=int)
   parser.add_argument('-print_every', default=UPDATE_LENGTH, help='number of training elements to train on before an update is printed', type=int)
+  parser.add_argument('-batch_size', default=BATCH_SIZE, help='size of batches for training', type=int)
 
   args = parser.parse_args()
 
@@ -38,7 +40,8 @@ def parse_args():
   'TASK': args.task,
   'HIDDEN_SIZE': args.hidden_size,
   'ATTENTION_GATE_HIDDEN_SIZE': args.attention_hidden_size,
-  'UPDATE_LENGTH': args.print_every
+  'UPDATE_LENGTH': args.print_every,
+  'BATCH_SIZE': args.batch_size
   }
 
   return params
