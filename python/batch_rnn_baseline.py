@@ -67,37 +67,48 @@ def add_placeholders():
   return input_placeholder, input_length_placeholder, question_placeholder, question_length_placeholder, labels_placeholder
 
 
-def RNN(X, num_words_in_X, hidden_size, input_size, max_input_size):
-  # Split X into a list of tensors of length MAX_INPUT_LENGTH where each tensor is a BATCH_SIZExWORD_VECTOR_LENGTH vector
+def RNN(X, num_words_in_X, hidden_size, input_vector_size, max_input_size):
+  """
+  Passes the input data through an RNN and outputs the final states.
+
+  X: Input is a MAX_INPUT_LENGTH X BATCH_SIZE X WORD_VECTOR_LENGTH matrix
+  num_words_in_X: Number of words in X, which is needed because X is zero padded
+  hidden_size: The dimensionality of the hidden layer of the RNN
+  input_vector_size: This is the dimensionality of each input vector, in this case it is WORD_VECTOR_LENGTH 
+  max_input_size: This is the max number of input vectors that can be passed in to the RNN.
+
+  """
+
+  # Split X into a list of tensors of length max_input_size where each tensor is a BATCH_SIZE x input_vector_size vector
   X = tf.split(0, max_input_size, X)
 
   squeezed = []
-
   for i in range(len(X)):
     squeezed.append(tf.squeeze(X[i]))
 
-  gru_cell = rnn_cell.GRUCell(num_units=hidden_size, input_size=input_size)
-
+  gru_cell = rnn_cell.GRUCell(num_units=hidden_size, input_size=input_vector_size)
   output, state = rnn.rnn(gru_cell, squeezed, sequence_length=num_words_in_X, dtype=tf.float32)
-
   return output, state, X
 
 
-# Takes in a list of tuples of (input, question, answer) and returns a list of length (number of examples) / BATCH_SIZE
-# where each element is a batch of BATCH_SIZE questions
 def batch_data(data):
+  """ 
+  Takes in a list of tuples of (input, question, answer) and returns a list of length 
+  (number of examples) / BATCH_SIZE where each element is a batch of BATCH_SIZE questions.
+
+  data: a list of tuples of (input, question, answer)
+
+  """
+
   # Compute total number of batches for the data set
   num_batches = len(data) / BATCH_SIZE
 
   batched_data = []
-
   for i in range(num_batches):
-
     # Get current batch
     current_batch = []
 
     for j in range(BATCH_SIZE):
-
       if i * BATCH_SIZE + j < len(data):
         current_batch.append(data[i * BATCH_SIZE + j])
 
@@ -106,11 +117,21 @@ def batch_data(data):
   return batched_data
 
 
-# Takes in a list of batches of data and converts them to a list of batched vectors
-# Each element of the returned list contains all the vectors for a batch of data
-# Output dimension is (max num words) x (BATCH_SIZE) x (WORD_VECTOR_LENGTH)
-# If there are no fewer words than the max number of words zero vectors are added for padding
 def convert_to_vectors(batched_data, glove_dict):
+  """
+
+  Takes in a list of batches of data and converts them to a list of batched vectors
+  Each element of the returned list contains all the vectors for a batch of data
+  Output dimension is (max num words) x (BATCH_SIZE) x (WORD_VECTOR_LENGTH)
+  If there are no fewer words than the max number of words zero vectors are added for padding
+
+  batched_data: A list of of length number of batches. Each element is a batch of 
+                (input, question, answer) tuples
+  glove_dict: dictionary from word to glove word vector
+
+  """
+
+
   batched_input_vecs = []
   batched_input_lengths = []
   batched_question_vecs = []
@@ -184,6 +205,15 @@ def convert_to_vectors(batched_data, glove_dict):
 
 
 def get_word_vector(word, glove_dict):
+  """ 
+  Helper function that returns a glove vector for a word if it exists in the glove dictionary, and
+  returns a random vector if it does not. 
+
+  word: The string of a word to look up in the dictionary
+  glove_dict: A dictionary from words to glove word vectors
+
+  """
+
   if word in glove_dict:
     word_vec = glove_dict[word]
   else:
@@ -193,6 +223,17 @@ def get_word_vector(word, glove_dict):
 
 
 def answer_module(input_and_question):
+  """ 
+  The answer module is a NN with the following structure:
+  1. dense fully connected layer
+  2. ReLU activation
+  3. dense fully connected layer
+  Returns the projections which is an array of size NUM_CLASSES
+
+  input_and_quesiton: The concatenated outputs from the input and question modules
+
+  """
+
   with tf.variable_scope("answer_module"):
     W_1 = tf.get_variable("W_1", shape=(INPUT_HIDDEN_SIZE + QUESTION_HIDDEN_SIZE, ANSWER_HIDDEN_SIZE))
     b_1 = tf.get_variable("b_1", shape=(1, ANSWER_HIDDEN_SIZE))
@@ -208,6 +249,10 @@ def answer_module(input_and_question):
 
 
 def run_baseline():
+  """
+  Main function which loads in data, runs the model, and prints out statistics
+
+  """
   # Get train dataset for task 6
   train_total = get_task_6_train()
 
