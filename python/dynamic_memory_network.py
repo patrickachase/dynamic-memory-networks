@@ -29,6 +29,7 @@ MAX_INPUT_SENTENCES = 40
 EARLY_STOPPING = 2
 MAX_INPUT_LENGTH = 200
 MAX_QUESTION_LENGTH = 20
+l2 = 0.001
 
 LEARNING_RATE = params['LEARNING_RATE']
 HIDDEN_SIZE = params['HIDDEN_SIZE']
@@ -287,6 +288,24 @@ def get_end_of_sentences(words):
 
   return end_of_sentences
 
+def compute_regularization_penalty():
+
+  penalty = tf.zeros([1])
+
+  trainables =  tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+
+  # TODO figure out why the loop is needed and why we cant use tf.get_collection(tf.GraphKeys.WEIGHTS)
+
+  for variable in trainables:
+
+    print variable.name
+
+    if "W" in variable.name or "Matrix" in variable.name:
+      print "Adding regularization for ", variable.name
+      penalty += tf.nn.l2_loss(variable)
+
+  return penalty
+
 
 def run_baseline():
   """
@@ -359,7 +378,11 @@ def run_baseline():
   prediction_probs = tf.nn.softmax(projections)
 
   # Compute loss
-  cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(projections, labels_placeholder))
+  cross_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(projections, labels_placeholder))
+
+  l2_loss = compute_regularization_penalty()
+
+  cost = cross_entropy_loss + l2*l2_loss
 
   # Add optimizer
   optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE).minimize(cost)
