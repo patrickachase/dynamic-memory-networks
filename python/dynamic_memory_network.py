@@ -72,7 +72,7 @@ def add_placeholders():
 
   input_placeholder = tf.placeholder(tf.float32, shape=[MAX_INPUT_LENGTH, BATCH_SIZE, WORD_VECTOR_LENGTH])
   input_length_placeholder = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
-  end_of_sentences_placeholder = tf.placeholder(tf.int32, shape=[MAX_INPUT_SENTENCES, BATCH_SIZE])
+  end_of_sentences_placeholder = tf.placeholder(tf.int32, shape=[MAX_INPUT_SENTENCES * BATCH_SIZE])
   num_sentences_placeholder = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
   question_placeholder = tf.placeholder(tf.float32, shape=[MAX_QUESTION_LENGTH, BATCH_SIZE, WORD_VECTOR_LENGTH])
   question_length_placeholder = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
@@ -124,7 +124,9 @@ def input_module(input_placeholder, input_length_placeholder, end_of_sentences_p
 
   X: Input is a MAX_INPUT_LENGTH X BATCH_SIZE X WORD_VECTOR_LENGTH matrix with the words for each example in the batch
   input_length_placeholder: Matrix of BATCH_SIZE x 1 with the number of words in each example
-  index_end_of_sentences: A matrix of MAX_INPUT_SENTENCES x BATCH_SIZE with the index of the end of each sentence for each example
+  end_of_sentences_placeholder: A vector of length (MAX_INPUT_SENTENCES * BATCH_SIZE) with the index of the end of each sentence
+                                for each example in the batch in the matrix with all the word states which has dimension
+                                (MAX_INPUT_LENGTH*BATCH_SIZE) x INPUT_HIDDEN_SIZE.
 
   """
 
@@ -132,15 +134,23 @@ def input_module(input_placeholder, input_length_placeholder, end_of_sentences_p
   # Outputs is a list of length MAX_INPUT_LENGTH where each element is BATCH_SIZE x HIDDEN_SIZE
   outputs, state = RNN(input_placeholder, input_length_placeholder, HIDDEN_SIZE, WORD_VECTOR_LENGTH, MAX_INPUT_LENGTH)
 
-  # Convert list of outputs into a tensor of dimension MAX_INPUT_LENGTH x BATCH_SIZE x INPUT_HIDDEN_SIZE
+  # Convert list of outputs into a tensor of dimension (MAX_INPUT_LENGTH*BATCH_SIZE) x INPUT_HIDDEN_SIZE
+  # Each row of the matrix is the output state for a word for that element of the batch
+  # Row number for word is word_number*batch_size + batch_element_number
   output_mat = tf.concat(0, outputs)
 
-  # Only project the states at the end of each sentence
-  # Sentences matrix is now MAX_INPUT_SENTENCES x BATCH_SIZE x HIDDEN_SIZE
-  # TODO figure out if this is the best way to get the state at the end of each sentence
-  sentence_representations_mat = tf.gather(output_mat, end_of_sentences_placeholder)
+  print output_mat
+  print end_of_sentences_placeholder
 
-  return sentence_representations_mat
+  # Only project the states at the end of each sentence
+  sentence_representations_mat = tf.gather(output_mat, end_of_sentences_placeholder)
+  print sentence_representations_mat
+
+  sentence_representations = tf.reshape(sentence_representations_mat, [MAX_INPUT_SENTENCES, BATCH_SIZE, HIDDEN_SIZE])
+
+  print sentence_representations
+
+  return sentence_representations, output_mat
 
 
 def question_module(question_placeholder, question_length_placeholder):
@@ -278,34 +288,6 @@ def get_end_of_sentences(words):
   return end_of_sentences
 
 
-def _copy_some_through(new_output, new_state):
-  # Use broadcasting select to determine which values should get
-  # the previous state & zero output, and which values should get
-  # a calculated state & output.
-  copy_cond = (time >= sequence_length)
-  return ([math_ops.select(copy_cond, zero_output, new_output)]
-          + [math_ops.select(copy_cond, old_s, new_s)
-             for (old_s, new_s) in zip(state, new_state)])
-
-
-def _maybe_copy_some_through():
-  """Run RNN step.  Pass through either no or some past state."""
-  new_output, new_state = call_cell()
-  new_state = (
-    list(_unpacked_state(new_state)) if state_is_tuple else [new_state])
-
-  if len(state) != len(new_state):
-    raise ValueError(
-      "Input and output state tuple lengths do not match: %d vs. %d"
-      % (len(state), len(new_state)))
-
-  return control_flow_ops.cond(
-    # if t < min_seq_len: calculate and return everything
-    time < min_sequence_length, lambda: [new_output] + new_state,
-    # else copy some of it through
-    lambda: _copy_some_through(new_output, new_state))
-
-
 def run_baseline():
   """
   Main function which loads in data, runs the model, and prints out statistics
@@ -359,7 +341,8 @@ def run_baseline():
 
   # Input module
   with tf.variable_scope("input"):
-    sentence_states = input_module(input_placeholder, input_length_placeholder, end_of_sentences_placeholder)
+    sentence_states, all_outputs = input_module(input_placeholder, input_length_placeholder,
+                                                end_of_sentences_placeholder)
 
   # Question module
   with tf.variable_scope("question"):
@@ -404,8 +387,11 @@ def run_baseline():
       # Compute average loss on training data
       for i in range(len(train_batches)):
 
-        loss, _, batch_prediction_probs = sess.run(
-          [cost, optimizer, prediction_probs],
+        # print "Train batch ", train_batches[i]
+        # print "End of sentences ", train_batched_end_of_sentences[i]
+
+        loss, _, batch_prediction_probs, input_outputs, sentence_states_out = sess.run(
+          [cost, optimizer, prediction_probs, all_outputs, sentence_states],
           feed_dict={input_placeholder: train_batched_input_vecs[i],
                      input_length_placeholder: train_batched_input_lengths[i],
                      end_of_sentences_placeholder: train_batched_end_of_sentences[i],
@@ -413,6 +399,15 @@ def run_baseline():
                      question_placeholder: train_batched_question_vecs[i],
                      question_length_placeholder: train_batched_question_lengths[i],
                      labels_placeholder: train_batched_answer_vecs[i]})
+
+        # end_of_first_sentence_first_batch = train_batched_end_of_sentences[i][0,0]
+        #
+        # print "Index end of first sentence:", end_of_first_sentence_first_batch
+        #
+        # print "Shape input outputs", np.shape(input_outputs)
+        # print "States at end of first sentence for first element of batch", input_outputs[end_of_first_sentence_first_batch, 0, :]
+        # print "States at end of first sentence for first element of batch {}".format(sentence_states[0,0:])
+        # print "Train batch number of sentences:", train_batched_num_sentences[i]
 
         total_training_loss += loss
 

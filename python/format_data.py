@@ -215,7 +215,7 @@ def convert_to_vectors_with_sentences(batched_data, glove_dict, max_input_length
     # Create an array to hold all of the word vectors for the batch
     batch_input_vecs = np.zeros((max_input_length, len(batch), WORD_VECTOR_LENGTH))
     batch_input_lengths = np.zeros(len(batch))
-    batch_end_of_sentences = np.zeros((max_num_sentences, len(batch)))
+    batch_end_of_sentences = np.zeros(len(batch)*max_num_sentences)
     batch_num_sentences = np.zeros(len(batch))
     batch_question_vecs = np.zeros((max_question_length, len(batch), WORD_VECTOR_LENGTH))
     batch_question_lengths = np.zeros(len(batch))
@@ -241,7 +241,7 @@ def convert_to_vectors_with_sentences(batched_data, glove_dict, max_input_length
         batch_input_vecs[j, i, :] = word_vector
 
         if word == ".":
-          batch_end_of_sentences[num_sentences, i] = j
+          batch_end_of_sentences[num_sentences*len(batch) + i] = j*len(batch) + i
           num_sentences += 1
 
       # Add input length

@@ -33,4 +33,4 @@ def plot_from_file(filename):
   plt.legend(handles=[train_acc_plot, val_acc_plot])
   plt.show()
 
-plot_from_file('outputs/dmn/lr_0.001_hs_50_e_500.txt')
+plot_from_file('outputs/dmn/lr_0.001_hs_50_e_100.txt')
