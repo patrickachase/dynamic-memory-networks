@@ -28,6 +28,7 @@ QUESTION_HIDDEN_SIZE = params['QUESTION_HIDDEN_SIZE']
 ANSWER_HIDDEN_SIZE = params['ANSWER_HIDDEN_SIZE']
 MAX_EPOCHS = params['MAX_EPOCHS']
 BATCH_SIZE = params['BATCH_SIZE']
+REG = params['REG']
 
 NUM_CLASSES = 2
 WORD_VECTOR_LENGTH = 50
@@ -116,6 +117,29 @@ def answer_module(input_and_question):
 
   return projections
 
+def compute_regularization_penalty():
+
+  penalty = tf.zeros([1])
+
+  trainables =  tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="input")
+  trainables += tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="question")
+
+  # TODO figure out why the loop is needed and why we cant use tf.get_collection(tf.GraphKeys.WEIGHTS)
+
+  # Add l2 loss for all RNN matrices
+  for variable in trainables:
+    if "W" in variable.name or "Matrix" in variable.name:
+      penalty += tf.nn.l2_loss(variable)
+
+  # Add l2 loss for output module
+  with tf.variable_scope("answer/answer_module", reuse=True):
+    W_1 = tf.get_variable("W_1", shape=(INPUT_HIDDEN_SIZE + QUESTION_HIDDEN_SIZE, ANSWER_HIDDEN_SIZE))
+    W_out = tf.get_variable("W_out", shape=(ANSWER_HIDDEN_SIZE, NUM_CLASSES))
+
+  penalty += tf.nn.l2_loss(W_1) + tf.nn.l2_loss(W_out)
+
+  return penalty
+
 
 def run_baseline():
   """
@@ -182,7 +206,12 @@ def run_baseline():
   prediction_probs = tf.nn.softmax(projections)
 
   # Compute loss
-  cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(projections, labels_placeholder))
+  cross_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(projections, labels_placeholder))
+
+  # Add regularization
+  l2_loss = compute_regularization_penalty()
+
+  cost = cross_entropy_loss + REG*l2_loss
 
   # Add optimizer
   optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE).minimize(cost)
