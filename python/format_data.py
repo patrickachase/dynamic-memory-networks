@@ -1,5 +1,6 @@
 import numpy as np
 import random
+from random import shuffle
 
 WORD_VECTOR_LENGTH = 50
 NUM_CLASSES = 2
@@ -85,6 +86,9 @@ def batch_data(data, batch_size):
 
   # Compute total number of batches for the data set
   num_batches = len(data) / batch_size
+
+  # Shuffle
+  np.random.shuffle(data)
 
   batched_data = []
   for i in range(num_batches):

@@ -43,7 +43,6 @@ BATCH_SIZE = params['BATCH_SIZE']
 
 OUTFILE_STRING = 'lr_ ' + str(LEARNING_RATE) + '_r_' + str(REG) + '_hs_' + str(HIDDEN_SIZE) +'_e_' + str(MAX_EPOCHS)
 
-
 #### END MODEL PARAMETERS ####
 
 
@@ -289,11 +288,11 @@ def get_end_of_sentences(words):
 
   return end_of_sentences
 
-def compute_regularization_penalty():
 
+def compute_regularization_penalty():
   penalty = tf.zeros([1])
 
-  trainables =  tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+  trainables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
 
   # TODO figure out why the loop is needed and why we cant use tf.get_collection(tf.GraphKeys.WEIGHTS)
   for variable in trainables:
@@ -322,15 +321,10 @@ def run_baseline():
   glove_dict = load_glove_vectors()
 
   # Split data into batches
-  train_batches = batch_data(train, BATCH_SIZE)
   validation_batches = batch_data(validation, BATCH_SIZE)
   test_batches = batch_data(test, BATCH_SIZE)
 
   # Convert batches into vectors
-  train_batched_input_vecs, train_batched_input_lengths, train_batched_end_of_sentences, train_batched_num_sentences, train_batched_question_vecs, \
-  train_batched_question_lengths, train_batched_answer_vecs = convert_to_vectors_with_sentences(
-    train_batches, glove_dict, MAX_INPUT_LENGTH, MAX_INPUT_SENTENCES, MAX_QUESTION_LENGTH)
-
   val_batched_input_vecs, val_batched_input_lengths, val_batched_end_of_sentences, val_batched_num_sentences, val_batched_question_vecs, \
   val_batched_question_lengths, val_batched_answer_vecs = convert_to_vectors_with_sentences(validation_batches,
                                                                                             glove_dict,
@@ -347,7 +341,6 @@ def run_baseline():
   print "Validation samples: {}".format(len(validation))
   print "Testing samples: {}".format(len(test))
   print "Batch size: {}".format(BATCH_SIZE)
-  print "Training number of batches: {}".format(len(train_batches))
   print "Validation number of batches: {}".format(len(validation_batches))
   print "Test number of batches: {}".format(len(test_batches))
 
@@ -379,7 +372,7 @@ def run_baseline():
 
   l2_loss = compute_regularization_penalty()
 
-  cost = cross_entropy_loss + REG*l2_loss
+  cost = cross_entropy_loss + REG * l2_loss
 
   # Add optimizer
   optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE).minimize(cost)
@@ -403,6 +396,11 @@ def run_baseline():
 
       total_training_loss = 0
       sum_training_accuracy = 0
+
+      train_batches = batch_data(train, BATCH_SIZE)
+      train_batched_input_vecs, train_batched_input_lengths, train_batched_end_of_sentences, train_batched_num_sentences, train_batched_question_vecs, \
+      train_batched_question_lengths, train_batched_answer_vecs = convert_to_vectors_with_sentences(
+        train_batches, glove_dict, MAX_INPUT_LENGTH, MAX_INPUT_SENTENCES, MAX_QUESTION_LENGTH)
 
       # Compute average loss on training data
       for i in range(len(train_batches)):
@@ -520,13 +518,6 @@ def run_baseline():
     print '=-=' * 5
     print 'Test accuracy: {}'.format(test_accuracy)
     print '=-=' * 5
-
-    # TODO add input loop so we can test and debug with our own examples
-    input = ""
-    while input:
-      # Run model
-
-      input = raw_input('> ')
 
 
 if __name__ == "__main__":

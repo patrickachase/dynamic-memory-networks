@@ -41,6 +41,7 @@ MAX_QUESTION_LENGTH = 20
 # Number of batches to train on before an update is printed
 UPDATE_LENGTH = 1
 
+
 #### END MODEL PARAMETERS ####
 
 def add_placeholders():
@@ -120,11 +121,11 @@ def answer_module(input_and_question):
 
   return projections
 
-def compute_regularization_penalty():
 
+def compute_regularization_penalty():
   penalty = tf.zeros([1])
 
-  trainables =  tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="input")
+  trainables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="input")
   trainables += tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="question")
 
   # TODO figure out why the loop is needed and why we cant use tf.get_collection(tf.GraphKeys.WEIGHTS)
@@ -161,17 +162,13 @@ def run_baseline():
   glove_dict = load_glove_vectors()
 
   # Split data into batches
-  train_batches = batch_data(train, BATCH_SIZE)
   validation_batches = batch_data(validation, BATCH_SIZE)
   test_batches = batch_data(test, BATCH_SIZE)
 
   # Convert batches into vectors
-  train_batched_input_vecs, train_batched_input_lengths, train_batched_question_vecs, \
-  train_batched_question_lengths, train_batched_answer_vecs = convert_to_vectors(
-    train_batches, glove_dict, MAX_INPUT_LENGTH, MAX_QUESTION_LENGTH)
-
   val_batched_input_vecs, val_batched_input_lengths, val_batched_question_vecs, \
-  val_batched_question_lengths, val_batched_answer_vecs = convert_to_vectors(validation_batches, glove_dict, MAX_INPUT_LENGTH, MAX_QUESTION_LENGTH)
+  val_batched_question_lengths, val_batched_answer_vecs = convert_to_vectors(validation_batches, glove_dict,
+                                                                             MAX_INPUT_LENGTH, MAX_QUESTION_LENGTH)
 
   test_batched_input_vecs, test_batched_input_lengths, test_batched_question_vecs, \
   test_batched_question_lengths, test_batched_answer_vecs = convert_to_vectors(
@@ -182,7 +179,6 @@ def run_baseline():
   print "Validation samples: {}".format(len(validation))
   print "Testing samples: {}".format(len(test))
   print "Batch size: {}".format(BATCH_SIZE)
-  print "Training number of batches: {}".format(len(train_batches))
   print "Validation number of batches: {}".format(len(validation_batches))
   print "Test number of batches: {}".format(len(test_batches))
 
@@ -214,7 +210,7 @@ def run_baseline():
   # Add regularization
   l2_loss = compute_regularization_penalty()
 
-  cost = cross_entropy_loss + REG*l2_loss
+  cost = cross_entropy_loss + REG * l2_loss
 
   # Add optimizer
   optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE).minimize(cost)
@@ -238,6 +234,11 @@ def run_baseline():
 
       total_training_loss = 0
       sum_training_accuracy = 0
+
+      train_batches = batch_data(train, BATCH_SIZE)
+      train_batched_input_vecs, train_batched_input_lengths, train_batched_question_vecs, \
+      train_batched_question_lengths, train_batched_answer_vecs = convert_to_vectors(
+        train_batches, glove_dict, MAX_INPUT_LENGTH, MAX_QUESTION_LENGTH)
 
       # Compute average loss on training data
       for i in range(len(train_batches)):
@@ -299,7 +300,6 @@ def run_baseline():
         print "Weights saved"
 
       print 'Total time: {}'.format(time.time() - start)
-
 
       outfile = './outputs/batch_rnn/' + OUTFILE_STRING + '.txt'
       f = open(outfile, "a")
