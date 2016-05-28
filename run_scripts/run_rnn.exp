@@ -1,0 +1,38 @@
+#!/usr/bin/expect -f
+
+# Can extend this script to accept additional parameters here.
+set servernumber [lindex $argv 0]
+set parameters [lindex $argv 1]
+
+set timeout 10
+
+# Print outputs in console.
+log_user 1
+
+# SSH into corn and automatically accept SSH keys.
+spawn ssh -oStrictHostKeyChecking=no corn$servernumber.stanford.edu 
+# sleep 2
+
+expect {
+  # If prompted for two-step authentication, opt to authenticate via
+  # phone using the Duo app (option 1). When this line executes, you'll
+  # need to be ready to authenticate via phone.
+  "*Enter a passcode or select one*" {
+    send "1\r"
+    sleep 10
+  }
+}
+
+# Run the program.
+expect "*:~>"
+send "cd cs224d/dynamic-memory-networks\r"
+
+set timeout -1
+expect "*>"
+send "python python/batch_rnn_baseline.py $parameters\r"
+
+expect "*>"
+send_user "Exiting corn$servernumber.stanford.edu"
+send "exit\r"
+
+close
