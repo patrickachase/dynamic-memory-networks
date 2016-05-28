@@ -40,8 +40,6 @@ OUT_DIR = params['OUT_DIR']
 TASK = params['TASK']
 UPDATE_LENGTH = params['UPDATE_LENGTH']
 BATCH_SIZE = params['BATCH_SIZE']
-REG = params['REG']
-
 
 #### END MODEL PARAMETERS ####
 
@@ -480,7 +478,7 @@ def run_baseline():
 
       print 'Total time: {}'.format(time.time() - start)
 
-      outfile = './outputs/dmn/lr_' + str(LEARNING_RATE) + '_hs_' + str(HIDDEN_SIZE) +'_e_' + str(MAX_EPOCHS) + '.txt'
+      outfile = './outputs/dmn/lr_' + str(LEARNING_RATE) + '_r_' + str(REG) + '_hs_' + str(HIDDEN_SIZE) +'_e_' + str(MAX_EPOCHS) + '.txt'
       f = open(outfile, "a")
       f.write('train_acc, ' + str(training_accuracy) + '\n')
       f.write('train_loss, ' + str(average_training_loss) + '\n')
