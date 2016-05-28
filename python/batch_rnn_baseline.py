@@ -65,7 +65,6 @@ def add_placeholders():
   question_placeholder = tf.placeholder(tf.float32, shape=[MAX_QUESTION_LENGTH, BATCH_SIZE, WORD_VECTOR_LENGTH])
   question_length_placeholder = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
   labels_placeholder = tf.placeholder(tf.float32, shape=[BATCH_SIZE, NUM_CLASSES])
-  dropout_placeholder = tf.placeholder()
   return input_placeholder, input_length_placeholder, question_placeholder, question_length_placeholder, labels_placeholder
 
 
