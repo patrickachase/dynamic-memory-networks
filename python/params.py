@@ -3,7 +3,7 @@ import argparse
 
 LEARNING_RATE = 0.001
 REG = 0.0001
-MAX_EPOCHS = 100
+MAX_EPOCHS = 250
 DROPOUT = 0.2
 OUT_DIR = './outputs'
 TASK = 6

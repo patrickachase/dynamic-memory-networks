@@ -3,7 +3,7 @@ import random
 
 WORD_VECTOR_LENGTH = 50
 NUM_CLASSES = 2
-TRAINING_SPLIT = 0.8
+TRAINING_SPLIT = 0.9
 INCLUDE_PUNCTUATION = True
 
 def split_training_data(train_total):
