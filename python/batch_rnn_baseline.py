@@ -30,6 +30,9 @@ MAX_EPOCHS = params['MAX_EPOCHS']
 BATCH_SIZE = params['BATCH_SIZE']
 REG = params['REG']
 
+OUTFILE_STRING = 'lr_' + str(LEARNING_RATE) + '_r_' + str(REG) + '_hs_' + str(INPUT_HIDDEN_SIZE) +'_e_' + str(MAX_EPOCHS)
+
+
 NUM_CLASSES = 2
 WORD_VECTOR_LENGTH = 50
 MAX_INPUT_LENGTH = 100
@@ -292,13 +295,13 @@ def run_baseline():
       if validation_accuracy > best_validation_accuracy:
         best_validation_accuracy = validation_accuracy
         best_val_epoch = epoch
-        saver.save(sess, '../data/weights/rnn.weights')
+        saver.save(sess, '../data/weights/rnn_' + OUTFILE_STRING + '.weights')
         print "Weights saved"
 
       print 'Total time: {}'.format(time.time() - start)
 
 
-      outfile = './outputs/batch_rnn/lr_' + str(LEARNING_RATE) + '_r_' + str(REG) + '_hs_' + str(INPUT_HIDDEN_SIZE) +'_e_' + str(MAX_EPOCHS) + '.txt'
+      outfile = './outputs/batch_rnn/' + OUTFILE_STRING + '.txt'
       f = open(outfile, "a")
       f.write('train_acc, ' + str(training_accuracy) + '\n')
       f.write('train_loss, ' + str(average_training_loss) + '\n')
@@ -307,7 +310,7 @@ def run_baseline():
       f.close()
 
     # Compute average loss on testing data with best weights
-    saver.restore(sess, '../data/weights/rnn.weights')
+    saver.restore(sess, '../data/weights/rnn_' + OUTFILE_STRING + '.weights')
 
     total_test_loss = 0
     sum_test_accuracy = 0

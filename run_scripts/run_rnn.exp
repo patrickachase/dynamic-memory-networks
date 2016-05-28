@@ -25,11 +25,11 @@ expect {
 
 # Run the program.
 expect "*:~>"
-send "cd cs224d/dynamic-memory-networks\r"
+send "cd cs224d/dynamic-memory-networks/python\r"
 
 set timeout -1
 expect "*>"
-send "python python/batch_rnn_baseline.py $parameters\r"
+send "python batch_rnn_baseline.py $parameters\r"
 
 expect "*>"
 send_user "Exiting corn$servernumber.stanford.edu"
