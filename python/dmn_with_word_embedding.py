@@ -487,12 +487,11 @@ def run_dmn():
                      num_sentences_placeholder: val_batched_num_sentences[i],
                      question_placeholder: val_batched_question_vecs[i],
                      question_length_placeholder: val_batched_question_lengths[i],
-                     labels_placeholder: val_batched_answer_vecs[i]})
+                     labels_placeholder: val_batched_answers[i]})
 
         total_validation_loss += loss
 
-        batch_accuracy = np.equal(np.argmax(batch_prediction_probs, axis=1),
-                                  np.argmax(val_batched_answer_vecs[i], axis=1)).mean()
+        batch_accuracy = np.equal(np.argmax(batch_prediction_probs, axis=1), val_batched_answers[i]).mean()
 
         sum_validation_accuracy += batch_accuracy
 
@@ -536,12 +535,11 @@ def run_dmn():
                    num_sentences_placeholder: test_batched_num_sentences[i],
                    question_placeholder: test_batched_question_vecs[i],
                    question_length_placeholder: test_batched_question_lengths[i],
-                   labels_placeholder: test_batched_answer_vecs[i]})
+                   labels_placeholder: test_batched_answers[i]})
 
       total_test_loss += loss
 
-      batch_accuracy = np.equal(np.argmax(batch_prediction_probs, axis=1),
-                                np.argmax(test_batched_answer_vecs[i], axis=1)).mean()
+      batch_accuracy = np.equal(np.argmax(batch_prediction_probs, axis=1), test_batched_answers[i]).mean()
 
       sum_test_accuracy += batch_accuracy
 
