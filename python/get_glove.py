@@ -3,6 +3,9 @@ import os
 import numpy as np
 # code adapted from github/cgpotts/cs224u/
 
+# Number of tokens in input glove vectors
+NUM_TOKENS = 400000
+
 def load_glove_vectors():
 	"""Loads in the glove vectors from data/glove.6B """
 
@@ -22,17 +25,19 @@ def load_glove_embedding(dims=50):
   reader = csv.reader(open(src_filename), delimiter=' ', quoting=csv.QUOTE_NONE) 
   
   word_to_index = {}
-  embedding_mat = []
+
+  # Initialize embedding matrix to be all zeros with the correct dimension
+  embedding_mat = np.zeros((NUM_TOKENS + 1, dims))
 
   counter = 0
   for line in reader:
     word_to_index[line[0]] = counter
     vec = np.array(list(map(float, line[1: ])))
-    embedding_mat.append(vec)
+    embedding_mat[counter] = vec
     counter += 1
 
   unk_vec = np.random.rand(dims)
-  embedding_mat.append(unk_vec)
+  embedding_mat[counter] = unk_vec
   word_to_index['<unk>'] = counter
 
   return word_to_index, embedding_mat

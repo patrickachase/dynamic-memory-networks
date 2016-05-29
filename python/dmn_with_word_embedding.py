@@ -327,8 +327,9 @@ def run_dmn():
   word_to_index, embedding_mat = load_glove_embedding()
 
   # Create L tensor from embedding_mat
-  with tf.variable_scope("Embedding"):
-    L = tf.Variable(embedding_mat, name="L")
+  with tf.variable_scope("Embedding") as scope:
+    #L = tf.Variable(embedding_mat, name="L")
+    L = tf.get_variable("L", shape=np.shape(embedding_mat))
 
   # Split data into batches
   validation_batches = batch_data(validation, BATCH_SIZE)
@@ -392,7 +393,7 @@ def run_dmn():
 
   # Train over multiple epochs
   with tf.Session() as sess:
-    best_validation_accuracy = float('inf')
+    best_validation_accuracy = 0.0
     best_val_epoch = 0
 
     sess.run(init)
@@ -480,6 +481,7 @@ def run_dmn():
       print 'Training accuracy: {}'.format(training_accuracy)
       print 'Validation loss: {}'.format(average_validation_loss)
       print 'Validation accuracy: {}'.format(validation_accuracy)
+
       if validation_accuracy > best_validation_accuracy:
         best_validation_accuracy = validation_accuracy
         best_val_epoch = epoch

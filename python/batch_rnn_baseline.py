@@ -221,7 +221,7 @@ def run_baseline():
 
   # Train over multiple epochs
   with tf.Session() as sess:
-    best_validation_accuracy = float('inf')
+    best_validation_accuracy = 0.0
     best_val_epoch = 0
 
     sess.run(init)
