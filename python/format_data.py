@@ -292,6 +292,110 @@ def convert_to_vectors_with_sentences(batched_data, glove_dict, max_input_length
          batched_question_vecs, batched_question_lengths, batched_answer_vecs
 
 
+
+def convert_to_indices(batched_data, word_to_index, max_input_length, max_num_sentences, max_question_length):
+  """
+
+  Takes in a list of batches of data and converts them to a list of batched indices
+  Each element of the returned list contains all the vectors for a batch of data
+  Output dimension is (max num words) x (BATCH_SIZE)
+  If there are no fewer words than the max number of words zero vectors are added for padding
+
+  batched_data: A list of of length number of batches. Each element is a batch of
+                (input, question, answer) tuples
+  word_to_index: dictionary from word to index in glove embedding matrix
+
+  """
+
+  batched_input_vecs = []
+  batched_input_lengths = []
+  batched_end_of_sentences = []
+  batched_num_sentences = []
+  batched_question_vecs = []
+  batched_question_lengths = []
+  batched_answer_vecs = []
+
+  for batch in batched_data:
+
+    # Batch is a list of tuples of length BATCH_SIZE or less
+
+    # Create an array to hold all of the word indices for the batch
+    batch_input_indices = np.zeros((max_input_length, len(batch)))
+    batch_input_lengths = np.zeros(len(batch))
+    batch_end_of_sentences = np.zeros(len(batch)*max_num_sentences)
+    batch_num_sentences = np.zeros(len(batch))
+    batch_question_indices = np.zeros((max_question_length, len(batch)))
+    batch_question_lengths = np.zeros(len(batch))
+    batch_answer_vecs = np.zeros((len(batch), NUM_CLASSES))
+
+    for i in range(len(batch)):
+      example = batch[i]
+      input = example[0]
+      question = example[1]
+      answer = example[2]
+
+      num_sentences = 0
+
+      # Add input indices
+      for j in range(len(input)):
+        if j >= max_input_length:
+          continue
+        word = input[j]
+
+        word_index = get_word_index(word, word_to_index)
+
+        # Set the jth word of the ith batch to be the word index
+        batch_input_indices[j, i] = word_index
+
+        if word == ".":
+          batch_end_of_sentences[num_sentences*len(batch) + i] = j*len(batch) + i
+          num_sentences += 1
+
+      # Add input length
+      batch_input_lengths[i] = len(input)
+
+      # Add number of sentences
+      batch_num_sentences[i] = num_sentences
+
+      # Add question vectors
+      for j in range(len(question)):
+        if j >= max_question_length:
+          continue
+        word = question[j]
+
+        word_index = get_word_index(word, word_to_index)
+
+        # Set the jth word of the ith batch to be the word index
+        batch_question_indices[j, i] = word_index
+
+      # Add question length
+      batch_question_lengths[i] = len(question)
+
+      # Add answer vectors
+
+      # Convert answer to a one hot vector
+      if answer == 'yes':
+        answer = np.array([1, 0])
+        answer = answer.reshape((1, NUM_CLASSES))
+      else:
+        answer = np.array([0, 1])
+        answer = answer.reshape((1, NUM_CLASSES))
+
+      batch_answer_vecs[i, :] = answer
+
+    batched_input_vecs.append(batch_input_indices)
+    batched_input_lengths.append(batch_input_lengths)
+    batched_end_of_sentences.append(batch_end_of_sentences)
+    batched_num_sentences.append(batch_num_sentences)
+    batched_question_vecs.append(batch_question_indices)
+    batched_question_lengths.append(batch_question_lengths)
+    batched_answer_vecs.append(batch_answer_vecs)
+
+  return batched_input_vecs, batched_input_lengths, batched_end_of_sentences, batched_num_sentences, \
+         batched_question_vecs, batched_question_lengths, batched_answer_vecs
+
+
+
 def get_word_vector(word, glove_dict):
   """ 
   Helper function that returns a glove vector for a word if it exists in the glove dictionary, and
@@ -309,3 +413,20 @@ def get_word_vector(word, glove_dict):
     word_vec /= np.sum(word_vec)
   return word_vec
 
+
+
+def get_word_index(word, word_to_index):
+  """ 
+  Helper function that returns the index to the word vector in the embedding matrix if the word 
+  exists in glove. Otherwise, returns the index to an <unk> token.
+
+  word: The string of a word to look up in the dictionary
+  glove_dict: A dictionary from words to glove word vectors
+
+  """
+
+  if word in word_to_index:
+    word_index = word_to_index[word]
+  else:
+    word_index = word_to_index['<unk>']
+  return word_index

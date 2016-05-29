@@ -17,7 +17,7 @@ def load_glove_vectors():
 def load_glove_embedding(dims=50):
   """Loads in the glove vectors from data/glove.6B """
 
-  glove_home = utils.DATA_DIR + '/glove/'
+  glove_home = '../data/glove.6B'
   src_filename = os.path.join(glove_home, 'glove.6B.' + str(dims) + 'd.txt')
   reader = csv.reader(open(src_filename), delimiter=' ', quoting=csv.QUOTE_NONE) 
   
@@ -30,5 +30,9 @@ def load_glove_embedding(dims=50):
     vec = np.array(list(map(float, line[1: ])))
     embedding_mat.append(vec)
     counter += 1
+
+  unk_vec = np.random.rand(dims)
+  embedding_mat.append(unk_vec)
+  word_to_index['<unk>'] = counter
 
   return word_to_index, embedding_mat
