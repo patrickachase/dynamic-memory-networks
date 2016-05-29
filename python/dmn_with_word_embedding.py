@@ -88,12 +88,6 @@ def convert_to_vectors(input_indices, max_input_size, batch_size):
   with tf.variable_scope("Embedding", reuse=True):
     L = tf.get_variable("L")
 
-  # input_indices_vec = tf.reshape(input_indices, [-1])
-
-  # input_vecs = tf.nn.embedding_lookup(L, input_indices_vec)
-
-  # inputs = tf.reshape(input_vecs, [max_input_size, batch_size, WORD_VECTOR_LENGTH])
-
   return tf.nn.embedding_lookup(L, input_indices)
 
 
@@ -301,17 +295,6 @@ def answer_module(episodic_memory_states):
   return projections
 
 
-def get_end_of_sentences(words):
-  end_of_sentences = []
-
-  for i in range(len(words)):
-    word = words[i]
-    if word == ".":
-      end_of_sentences.append(i)
-
-  return end_of_sentences
-
-
 def compute_regularization_penalty():
   penalty = tf.zeros([1])
 
@@ -345,7 +328,7 @@ def run_dmn():
 
   # Create L tensor from embedding_mat
   with tf.variable_scope("Embedding"):
-    L = tf.get_variable("L", shape = (len(embedding_mat), WORD_VECTOR_LENGTH))
+    L = tf.Variable(embedding_mat, name="L")
 
   # Split data into batches
   validation_batches = batch_data(validation, BATCH_SIZE)
