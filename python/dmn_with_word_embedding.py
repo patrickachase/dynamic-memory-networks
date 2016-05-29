@@ -328,8 +328,10 @@ def run_dmn():
 
   # Create L tensor from embedding_mat
   with tf.variable_scope("Embedding") as scope:
-    #L = tf.Variable(embedding_mat, name="L")
+    L_init = tf.Variable(embedding_mat, name="L_init")
+    L_init = tf.cast(L_init, tf.float32)
     L = tf.get_variable("L", shape=np.shape(embedding_mat))
+    L.assign(L_init)
 
   # Split data into batches
   validation_batches = batch_data(validation, BATCH_SIZE)
