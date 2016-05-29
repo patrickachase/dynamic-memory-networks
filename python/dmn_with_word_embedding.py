@@ -41,7 +41,8 @@ TASK = params['TASK']
 UPDATE_LENGTH = params['UPDATE_LENGTH']
 BATCH_SIZE = params['BATCH_SIZE']
 
-OUTFILE_STRING = 'lr_ ' + str(LEARNING_RATE) + '_r_' + str(REG) + '_hs_' + str(HIDDEN_SIZE) +'_e_' + str(MAX_EPOCHS)
+OUTFILE_STRING = 'lr_ ' + str(LEARNING_RATE) + '_r_' + str(REG) + '_hs_' + str(HIDDEN_SIZE) + '_e_' + str(MAX_EPOCHS)
+
 
 #### END MODEL PARAMETERS ####
 
@@ -77,13 +78,12 @@ def add_placeholders():
   num_sentences_placeholder = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
   question_placeholder = tf.placeholder(tf.int32, shape=[MAX_QUESTION_LENGTH, BATCH_SIZE])
   question_length_placeholder = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
-  labels_placeholder = tf.placeholder(tf.float32, shape=[BATCH_SIZE, NUM_CLASSES])
+  labels_placeholder = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
   return input_placeholder, input_length_placeholder, end_of_sentences_placeholder, num_sentences_placeholder, \
          question_placeholder, question_length_placeholder, labels_placeholder
 
 
 def convert_to_vectors(input_indices, max_input_size, batch_size):
-
   # Get the embeddings for input words
   with tf.variable_scope("Embedding", reuse=True):
     L = tf.get_variable("L")
@@ -278,7 +278,7 @@ def episodic_memory_module(sentence_states, number_of_sentences, question_state)
   return m
 
 
-def answer_module(episodic_memory_states):
+def answer_module(episodic_memory_states, dimension_of_answers):
   """
   Returns a matrix of size BATCH_SIZE x NUM_CLASSES with the unscaled probabilities for each class
 
@@ -287,8 +287,8 @@ def answer_module(episodic_memory_states):
   """
 
   with tf.variable_scope("answer_module"):
-    W_out = tf.get_variable("W_out", shape=(HIDDEN_SIZE, NUM_CLASSES))
-    b_out = tf.get_variable("b_out", shape=(1, NUM_CLASSES))
+    W_out = tf.get_variable("W_out", shape=(HIDDEN_SIZE, dimension_of_answers))
+    b_out = tf.get_variable("b_out", shape=(1, dimension_of_answers))
 
   projections = tf.matmul(episodic_memory_states, W_out) + b_out
 
@@ -309,6 +309,20 @@ def compute_regularization_penalty():
   return penalty
 
 
+def answer_tokens_to_index(data):
+  answer_to_index = {}
+
+  index = 0
+  for example in data:
+    answer = example[2]
+
+    if answer not in answer_to_index:
+      answer_to_index[answer] = index
+      index += 1
+
+  return answer_to_index
+
+
 def run_dmn():
   """
   Main function which loads in data, runs the model, and prints out statistics
@@ -319,6 +333,11 @@ def run_dmn():
   train_total = get_task_6_train()
 
   train, validation = split_training_data(train_total)
+
+  # Get all tokens from answers in training
+  answer_to_index = answer_tokens_to_index(train_total)
+
+  number_of_answers = len(answer_to_index)
 
   # Get test dataset for task 6
   test = get_task_6_test()
@@ -339,18 +358,20 @@ def run_dmn():
 
   # Convert batches into indeces
   val_batched_input_vecs, val_batched_input_lengths, val_batched_end_of_sentences, val_batched_num_sentences, val_batched_question_vecs, \
-  val_batched_question_lengths, val_batched_answer_vecs = convert_to_indices(validation_batches,
-                                                                            word_to_index,
-                                                                            MAX_INPUT_LENGTH,
-                                                                            MAX_INPUT_SENTENCES,
-                                                                            MAX_QUESTION_LENGTH)
+  val_batched_question_lengths, val_batched_answers = convert_to_indices(validation_batches,
+                                                                         word_to_index,
+                                                                         answer_to_index,
+                                                                         MAX_INPUT_LENGTH,
+                                                                         MAX_INPUT_SENTENCES,
+                                                                         MAX_QUESTION_LENGTH)
 
   test_batched_input_vecs, test_batched_input_lengths, test_batched_end_of_sentences, test_batched_num_sentences, test_batched_question_vecs, \
-  test_batched_question_lengths, test_batched_answer_vecs = convert_to_indices(test_batches, 
-                                                                              word_to_index, 
-                                                                              MAX_INPUT_LENGTH, 
-                                                                              MAX_INPUT_SENTENCES, 
-                                                                              MAX_QUESTION_LENGTH)
+  test_batched_question_lengths, test_batched_answers = convert_to_indices(test_batches,
+                                                                           word_to_index,
+                                                                           answer_to_index,
+                                                                           MAX_INPUT_LENGTH,
+                                                                           MAX_INPUT_SENTENCES,
+                                                                           MAX_QUESTION_LENGTH)
 
   # Print summary statistics
   print "Training samples: {}".format(len(train))
@@ -375,12 +396,12 @@ def run_dmn():
   episodic_memory_state = episodic_memory_module(sentence_states, num_sentences_placeholder, question_state)
 
   # Answer module
-  projections = answer_module(episodic_memory_state)
+  projections = answer_module(episodic_memory_state, number_of_answers)
 
   prediction_probs = tf.nn.softmax(projections)
 
   # Compute loss
-  cross_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(projections, labels_placeholder))
+  cross_entropy_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(projections, labels_placeholder))
 
   l2_loss = compute_regularization_penalty()
 
@@ -411,8 +432,8 @@ def run_dmn():
 
       train_batches = batch_data(train, BATCH_SIZE)
       train_batched_input_vecs, train_batched_input_lengths, train_batched_end_of_sentences, train_batched_num_sentences, train_batched_question_vecs, \
-      train_batched_question_lengths, train_batched_answer_vecs = convert_to_indices(
-        train_batches, word_to_index, MAX_INPUT_LENGTH, MAX_INPUT_SENTENCES, MAX_QUESTION_LENGTH)
+      train_batched_question_lengths, train_batched_answers = convert_to_indices(
+        train_batches, word_to_index, answer_to_index, MAX_INPUT_LENGTH, MAX_INPUT_SENTENCES, MAX_QUESTION_LENGTH)
 
       # Compute average loss on training data
       for i in range(len(train_batches)):
@@ -428,7 +449,7 @@ def run_dmn():
                      num_sentences_placeholder: train_batched_num_sentences[i],
                      question_placeholder: train_batched_question_vecs[i],
                      question_length_placeholder: train_batched_question_lengths[i],
-                     labels_placeholder: train_batched_answer_vecs[i]})
+                     labels_placeholder: train_batched_answers[i]})
 
         # end_of_first_sentence_first_batch = train_batched_end_of_sentences[i][0,0]
         #
@@ -441,8 +462,7 @@ def run_dmn():
 
         total_training_loss += loss
 
-        batch_accuracy = np.equal(np.argmax(batch_prediction_probs, axis=1),
-                                  np.argmax(train_batched_answer_vecs[i], axis=1)).mean()
+        batch_accuracy = np.equal(np.argmax(batch_prediction_probs, axis=1), train_batched_answers[i]).mean()
 
         sum_training_accuracy += batch_accuracy
 

@@ -293,7 +293,7 @@ def convert_to_vectors_with_sentences(batched_data, glove_dict, max_input_length
 
 
 
-def convert_to_indices(batched_data, word_to_index, max_input_length, max_num_sentences, max_question_length):
+def convert_to_indices(batched_data, word_to_index, answer_to_index, max_input_length, max_num_sentences, max_question_length):
   """
 
   Takes in a list of batches of data and converts them to a list of batched indices
@@ -326,7 +326,7 @@ def convert_to_indices(batched_data, word_to_index, max_input_length, max_num_se
     batch_num_sentences = np.zeros(len(batch))
     batch_question_indices = np.zeros((max_question_length, len(batch)))
     batch_question_lengths = np.zeros(len(batch))
-    batch_answer_vecs = np.zeros((len(batch), NUM_CLASSES))
+    batch_answers_indices = np.zeros((len(batch)))
 
     for i in range(len(batch)):
       example = batch[i]
@@ -371,17 +371,7 @@ def convert_to_indices(batched_data, word_to_index, max_input_length, max_num_se
       # Add question length
       batch_question_lengths[i] = len(question)
 
-      # Add answer vectors
-
-      # Convert answer to a one hot vector
-      if answer == 'yes':
-        answer = np.array([1, 0])
-        answer = answer.reshape((1, NUM_CLASSES))
-      else:
-        answer = np.array([0, 1])
-        answer = answer.reshape((1, NUM_CLASSES))
-
-      batch_answer_vecs[i, :] = answer
+      batch_answers_indices[i] = answer_to_index[answer]
 
     batched_input_vecs.append(batch_input_indices)
     batched_input_lengths.append(batch_input_lengths)
@@ -389,7 +379,7 @@ def convert_to_indices(batched_data, word_to_index, max_input_length, max_num_se
     batched_num_sentences.append(batch_num_sentences)
     batched_question_vecs.append(batch_question_indices)
     batched_question_lengths.append(batch_question_lengths)
-    batched_answer_vecs.append(batch_answer_vecs)
+    batched_answer_vecs.append(batch_answers_indices)
 
   return batched_input_vecs, batched_input_lengths, batched_end_of_sentences, batched_num_sentences, \
          batched_question_vecs, batched_question_lengths, batched_answer_vecs
