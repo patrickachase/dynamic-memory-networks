@@ -300,10 +300,10 @@ def compute_regularization_penalty():
 
   trainables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
 
-  # TODO figure out why the loop is needed and why we cant use tf.get_collection(tf.GraphKeys.WEIGHTS)
   for variable in trainables:
 
     if "W" in variable.name or "Matrix" in variable.name:
+      print "Adding regularization for", variable.name
       penalty += tf.nn.l2_loss(variable)
 
   return penalty
@@ -345,12 +345,12 @@ def run_dmn():
   # Get word to glove vectors dictionary
   word_to_index, embedding_mat = load_glove_embedding()
 
+  def initialize_word_vectors(shape, dtype):
+    return embedding_mat
+
   # Create L tensor from embedding_mat
   with tf.variable_scope("Embedding") as scope:
-    L_init = tf.Variable(embedding_mat, name="L_init")
-    L_init = tf.cast(L_init, tf.float32)
-    L = tf.get_variable("L", shape=np.shape(embedding_mat))
-    L.assign(L_init)
+    L = tf.get_variable("L", shape=np.shape(embedding_mat), initializer=initialize_word_vectors)
 
   # Split data into batches
   validation_batches = batch_data(validation, BATCH_SIZE)
