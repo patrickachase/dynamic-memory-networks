@@ -218,45 +218,68 @@ def episodic_memory_module(sentence_states, number_of_sentences, question_state)
 
     m_prev = m
 
-    # Initialize first hidden state for episode to be zeros
-    # TODO figure out if this is the right thing to do
-    h = tf.zeros([BATCH_SIZE, HIDDEN_SIZE])
-    final_h = tf.zeros([BATCH_SIZE, HIDDEN_SIZE])
+    gate_projections = []
 
-    # Loop over the sentences for each episode
+    # Loop over the sentences for each episode to compute the gates
     for j in range(MAX_INPUT_SENTENCES):
-      c_t = sentence_states[j]
 
       # Set scope for all these operations to be the episode
       with tf.variable_scope("episode", reuse=True if (j > 0 or i > 0) else None):
-        W_b = tf.get_variable("W_b", shape=(HIDDEN_SIZE, HIDDEN_SIZE))
-        W_1 = tf.get_variable("W_1", shape=(7 * HIDDEN_SIZE + 2, ATTENTION_GATE_HIDDEN_SIZE))
+        W_1 = tf.get_variable("W_1", shape=(7 * HIDDEN_SIZE, ATTENTION_GATE_HIDDEN_SIZE))
         b_1 = tf.get_variable("b_1", shape=(1, ATTENTION_GATE_HIDDEN_SIZE))
         W_2 = tf.get_variable("W_2", shape=(ATTENTION_GATE_HIDDEN_SIZE, 1))
         b_2 = tf.get_variable("b_2", shape=(1, 1))
-        gru_cell_episode = rnn_cell.GRUCell(num_units=HIDDEN_SIZE)
+
+        c_t = sentence_states[j]
 
         # Compute z for each batch
-        # Z is BATCH_SIZE x (7 * HIDDEN_SIZE + 2)
+        # Z is BATCH_SIZE x (7 * HIDDEN_SIZE)
         Z = tf.concat(1, [c_t, m_prev, q, tf.mul(c_t, q), tf.mul(c_t, m_prev), tf.abs(tf.sub(c_t, q)),
-                          tf.abs(tf.sub(c_t, m_prev)),
-                          tf.reshape(tf.reduce_sum(tf.mul(tf.matmul(c_t, W_b), q), 1), (BATCH_SIZE, 1)),
-                          tf.reshape(tf.reduce_sum(tf.mul(tf.matmul(c_t, W_b), m_prev), 1), (BATCH_SIZE, 1))])
+                          tf.abs(tf.sub(c_t, m_prev))])
 
         # Compute G
         attention_gate_hidden_state = tf.tanh(tf.add(tf.matmul(Z, W_1), b_1))
 
         # g is BATCH_SIZE x 1 where each value signifies the gate for sentence j for that batch
-        g = tf.sigmoid(tf.add(tf.matmul(attention_gate_hidden_state, W_2), b_2))
+        g = tf.add(tf.matmul(attention_gate_hidden_state, W_2), b_2)
+
+        copy_cond = (j >= number_of_sentences)
+
+        # Remove gates for inputs sentences past the number of sentences
+        g = tf.select(copy_cond, tf.fill([BATCH_SIZE, 1], -float("inf")), g)
+
+        # Add to list of projection
+        gate_projections.append(g)
+
+    # Concatenate the gates together to perform softmax
+    # Gates is now a matrix of BATCH_SIZE x MAX_INPUT_SENTENCES with the gates for each sentence in the batch for this episode
+    gates = tf.nn.softmax(tf.concat(1, gate_projections))
+
+    gates_per_sentence = tf.split(1, MAX_INPUT_SENTENCES, gates)
+
+    # Initialize first hidden state for episode to be zeros
+    # TODO figure out if this is the right thing to do
+    h = tf.zeros([BATCH_SIZE, HIDDEN_SIZE])
+    final_h = tf.zeros([BATCH_SIZE, HIDDEN_SIZE])
+
+    # Loop over the sentences for each episode to compute the memory updates
+    for j in range(MAX_INPUT_SENTENCES):
+      with tf.variable_scope("episode", reuse=True if (j > 0 or i > 0) else None):
+        gru_cell_episode = rnn_cell.GRUCell(num_units=HIDDEN_SIZE)
+
+        # Get current sentence state
+        c_t = sentence_states[j]
 
         # Compute next hidden state
         h_prev = h
 
         output, gru_state = gru_cell_episode(c_t, h_prev)
 
-        h = tf.mul(g, gru_state) + tf.mul(1 - g, h_prev)
+        # Get current gate values
+        g = gates_per_sentence[j]
 
-        # TODO figure out if this works for batches of data
+        # Apply gates
+        h = tf.mul(g, gru_state) + tf.mul(1 - g, h_prev)
 
         # Compute indices to copy through for
         copy_cond = (j >= number_of_sentences)
@@ -272,6 +295,8 @@ def episodic_memory_module(sentence_states, number_of_sentences, question_state)
     # Compute next m with previous m and episode
     with tf.variable_scope("memory", reuse=True if i > 0 else None):
       gru_cell_memory = rnn_cell.GRUCell(num_units=HIDDEN_SIZE)
+
+      # TODO experiement with different project here (RELU)
       output, m = gru_cell_memory(e, m_prev)
 
   # Return final memory state
