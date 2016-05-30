@@ -115,18 +115,6 @@ def RNN(X, num_words_in_X, hidden_size, input_vector_size, max_input_size):
   return output, state
 
 
-def count_positive_and_negative(answer_vecs):
-  num_positive = 0
-  for answer_vec in answer_vecs:
-
-    if answer_vec[0, 0] == 1:
-      num_positive = num_positive + 1
-
-  num_negative = len(answer_vecs) - num_positive
-
-  return num_positive, num_negative
-
-
 def input_module(input_placeholder, input_length_placeholder, end_of_sentences_placeholder):
   """
   Returns a matrix of size MAX_INPUT_SENTENCES x BATCH_SIZE x HIDDEN_SIZE with the hidden states for each sentence
@@ -222,7 +210,6 @@ def episodic_memory_module(sentence_states, number_of_sentences, question_state)
 
     # Loop over the sentences for each episode to compute the gates
     for j in range(MAX_INPUT_SENTENCES):
-
       # Set scope for all these operations to be the episode
       with tf.variable_scope("episode", reuse=True if (j > 0 or i > 0) else None):
         W_1 = tf.get_variable("W_1", shape=(7 * HIDDEN_SIZE, ATTENTION_GATE_HIDDEN_SIZE))
