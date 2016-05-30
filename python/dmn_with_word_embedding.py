@@ -17,6 +17,7 @@ from tensorflow.python.ops.seq2seq import sequence_loss
 from format_data import split_training_data, format_data, batch_data, convert_to_indices
 from random import shuffle
 from params import parse_args
+from xavier_initialization import xavier_weight_init
 
 #### MODEL PARAMETERS ####
 
@@ -230,10 +231,10 @@ def episodic_memory_module(sentence_states, number_of_sentences, question_state)
 
       # Set scope for all these operations to be the episode
       with tf.variable_scope("episode", reuse=True if (j > 0 or i > 0) else None):
-        W_1 = tf.get_variable("W_1", shape=(7 * HIDDEN_SIZE, ATTENTION_GATE_HIDDEN_SIZE))
-        b_1 = tf.get_variable("b_1", shape=(1, ATTENTION_GATE_HIDDEN_SIZE))
-        W_2 = tf.get_variable("W_2", shape=(ATTENTION_GATE_HIDDEN_SIZE, 1))
-        b_2 = tf.get_variable("b_2", shape=(1, 1))
+        W_1 = tf.get_variable("W_1", shape=(7 * HIDDEN_SIZE, ATTENTION_GATE_HIDDEN_SIZE), initializer = xavier_weight_init())
+        b_1 = tf.get_variable("b_1", shape=(1, ATTENTION_GATE_HIDDEN_SIZE), initializer = tf.constant_initializer(0.0))
+        W_2 = tf.get_variable("W_2", shape=(ATTENTION_GATE_HIDDEN_SIZE, 1), initializer = xavier_weight_init())
+        b_2 = tf.get_variable("b_2", shape=(1, 1), initializer = tf.constant_initializer(0.0))
 
         c_t = sentence_states[j]
 
@@ -319,8 +320,8 @@ def answer_module(episodic_memory_states, dimension_of_answers, dropout_placehol
   episodic_memory_states = tf.nn.dropout(episodic_memory_states, dropout_placeholder)
 
   with tf.variable_scope("answer_module"):
-    W_out = tf.get_variable("W_out", shape=(HIDDEN_SIZE, dimension_of_answers))
-    b_out = tf.get_variable("b_out", shape=(1, dimension_of_answers))
+    W_out = tf.get_variable("W_out", shape=(HIDDEN_SIZE, dimension_of_answers), initializer = xavier_weight_init())
+    b_out = tf.get_variable("b_out", shape=(1, dimension_of_answers), initializer = tf.constant_initializer(0.0))
 
   projections = tf.matmul(episodic_memory_states, W_out) + b_out
 
