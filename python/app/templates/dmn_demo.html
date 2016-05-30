@@ -1,6 +1,22 @@
 {% extends "base.html" %}
 {% block content %}
 
+<script type="text/javascript">
+
+    $(document).ready(function(){
+        console.log("TESTTTTT")
+
+        $('#table_id td.softmax_value').each(function(){
+
+            if (parseFloat($(this).text()) > 0.5) {
+                $(this).css('background-color','#fffdd9');
+                $(this).css('border-radius', '5px');
+            }
+        });
+    });
+
+</script>
+
 <div class="title">
     <h1>Dynamic Memory Networks</h1>
 </div>
@@ -35,7 +51,7 @@
 
 <div class="container">
     <h3>Episodes</h3>
-    <table class="table">
+    <table class="table" id="table_id">
         <thead>
         <tr>
             <th>Sentence</th>
@@ -49,9 +65,9 @@
         {% for sentence in sentences %}
             <tr>
                 <td>{{sentence}}</td>
-                <td>{{episode_1_gates[loop.index - 1]}}</td>
-                <td>{{episode_2_gates[loop.index - 1]}}</td>
-                <td>{{episode_3_gates[loop.index - 1]}}</td>
+                <td class="softmax_value">{{episode_1_gates[loop.index - 1]}}</td>
+                <td class="softmax_value">{{episode_2_gates[loop.index - 1]}}</td>
+                <td class="softmax_value">{{episode_3_gates[loop.index - 1]}}</td>
             </tr>
         {% endfor %}
         </tbody>
