@@ -8,11 +8,9 @@ import random
 
 import tensorflow as tf
 from tensorflow.models.rnn import rnn, rnn_cell
-from get_babi_data import get_task_6_train
-from get_babi_data import get_task_6_test
+from get_babi_data import *
+from get_babi_data import *
 from get_glove import load_glove_embedding
-from get_babi_data import get_task_1_train
-from get_babi_data import get_task_1_test
 from tensorflow.python.ops.seq2seq import sequence_loss
 from format_data import split_training_data, format_data, batch_data, convert_to_indices
 from random import shuffle
@@ -41,7 +39,7 @@ TASK = params['TASK']
 UPDATE_LENGTH = params['UPDATE_LENGTH']
 BATCH_SIZE = params['BATCH_SIZE']
 
-OUTFILE_STRING = 'lr_ ' + str(LEARNING_RATE) + '_r_' + str(REG) + '_hs_' + str(HIDDEN_SIZE) + '_e_' + str(MAX_EPOCHS)
+OUTFILE_STRING = 'lr_ ' + str(LEARNING_RATE) + '_r_' + str(REG) + '_hs_' + str(HIDDEN_SIZE) + '_e_' + str(MAX_EPOCHS) + 't' + str(TASK)
 
 
 #### END MODEL PARAMETERS ####
@@ -362,8 +360,8 @@ def run_dmn():
 
   """
 
-  # Get train dataset for task 6
-  train_total = get_task_6_train()
+  # Get train dataset for task
+  train_total = get_task_train(TASK)
 
   train, validation = split_training_data(train_total)
 
@@ -372,8 +370,8 @@ def run_dmn():
 
   number_of_answers = len(answer_to_index)
 
-  # Get test dataset for task 6
-  test = get_task_6_test()
+  # Get test dataset for task
+  test = get_task_test(TASK)
 
   # Get word to glove vectors dictionary
   word_to_index, embedding_mat = load_glove_embedding()

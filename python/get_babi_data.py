@@ -1,15 +1,57 @@
 import re
 
-
+DATAPATH = '../data/babi/tasks_1-20_v1-2/en-10k/'
 # Functions to load babi dataset
 
-# Returns a list of (input, question, answer) tuples for the training set
-def get_task_1_train():
-    return get_babi_dataset('../data/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_train.txt')
+def get_task_name(task_num):
+    if task_num == 1:
+        return 'qa1_single-supporting-fact'
+    elif task_num == 2:
+        return 'qa2_two-supporting-facts'
+    elif task_num == 3:
+        return 'qa3_three-supporting-facts'
+    elif task_num == 4:
+        return 'qa4_two-arg-relations'
+    elif task_num == 5:
+        return 'qa5_three-arg-relations'
+    elif task_num == 6:
+        return 'qa6_yes-no-questions'
+    elif task_num == 7:
+        return 'qa7_counting'
+    elif task_num == 8:
+        return 'qa8_lists-sets'
+    elif task_num == 9:
+        return 'qa9_simple-negation'
+    elif task_num == 10:
+        return 'qa10_indefinite-knowledge'
+    elif task_num == 11:
+        return 'qa11_basic-coreference'
+    elif task_num == 12:
+        return 'qa12_conjunction'
+    elif task_num == 13:
+        return 'qa13_compound-coreference'
+    elif task_num == 14:
+        return 'qa14_time-reasoning'
+    elif task_num == 15:
+        return 'qa15_basic-deduction'
+    elif task_num == 16:
+        return 'qa16_basic-induction'
+    elif task_num == 17:
+        return 'qa17_positional-reasoning'
+    elif task_num == 18:
+        return 'qa18_size-reasoning'
+    elif task_num == 19:
+        return 'qa19_path-finding'
+    else:
+        return 'qa20_agents-motivations'
 
-# Returns a list of (input, question, answer) tuples for the training set
-def get_task_1_test():
-    return get_babi_dataset('../data/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_test.txt')
+def get_task_train(task_num):
+    task_name = get_task_name(task_num)
+    return get_babi_dataset(DATAPATH + task_name + '_train.txt')
+
+def get_task_test(task_num):
+    task_name = get_task_name(task_num)
+    return get_babi_dataset(DATAPATH + task_name + '_test.txt')
 
 # Returns a list of (input, question, answer) tuples for the training set
 def get_task_6_train():
