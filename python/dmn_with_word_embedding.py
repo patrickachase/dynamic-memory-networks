@@ -78,11 +78,22 @@ def add_placeholders():
   question_placeholder = tf.placeholder(tf.int32, shape=[MAX_QUESTION_LENGTH, BATCH_SIZE])
   question_length_placeholder = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
   labels_placeholder = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
+  dropout_placeholder = tf.placeholder(tf.float32, shape = ())
+
   return input_placeholder, input_length_placeholder, end_of_sentences_placeholder, num_sentences_placeholder, \
-         question_placeholder, question_length_placeholder, labels_placeholder
+         question_placeholder, question_length_placeholder, labels_placeholder, dropout_placeholder
 
 
 def convert_to_vectors(input_indices, max_input_size, batch_size):
+  """ 
+  Converts the indices to word vectors from the embedding matrix.
+
+  input_indices: MAX_INPUT_LENGTH X BATCH_SIZE matrix 
+
+  Returns:
+    MAX_INPUT_LENGTH X BATCH_SIZE x WORD_VECTOR_LENGTH matrix 
+
+  """
   # Get the embeddings for input words
   with tf.variable_scope("Embedding", reuse=True):
     L = tf.get_variable("L")
@@ -114,7 +125,7 @@ def RNN(X, num_words_in_X, hidden_size, input_vector_size, max_input_size):
   return output, state
 
 
-def input_module(input_placeholder, input_length_placeholder, end_of_sentences_placeholder):
+def input_module(input_placeholder, input_length_placeholder, end_of_sentences_placeholder, dropout_placeholder):
   """
   Returns a matrix of size MAX_INPUT_SENTENCES x BATCH_SIZE x HIDDEN_SIZE with the hidden states for each sentence
   for each example and a matrix of size BATCH_SIZE with the number of sentences in each example
@@ -124,11 +135,15 @@ def input_module(input_placeholder, input_length_placeholder, end_of_sentences_p
   end_of_sentences_placeholder: A vector of length (MAX_INPUT_SENTENCES * BATCH_SIZE) with the index of the end of each sentence
                                 for each example in the batch in the matrix with all the word states which has dimension
                                 (MAX_INPUT_LENGTH*BATCH_SIZE) x INPUT_HIDDEN_SIZE.
+  dropout_placeholder: dropout value
 
   """
 
   # Construct vectors from indices
   input_vectors = convert_to_vectors(input_placeholder, MAX_INPUT_LENGTH, BATCH_SIZE)
+
+  # Add dropout to word vectors
+  input_vectors = tf.nn.dropout(input_vectors, dropout_placeholder)
 
   # Get outputs after every word
   # Outputs is a list of length MAX_INPUT_LENGTH where each element is BATCH_SIZE x 
@@ -154,7 +169,7 @@ def input_module(input_placeholder, input_length_placeholder, end_of_sentences_p
   return sentence_representations, output_mat
 
 
-def question_module(question_placeholder, question_length_placeholder):
+def question_module(question_placeholder, question_length_placeholder, dropout_placeholder):
   """
   Returns a matrix of BATCH_SIZE x HIDDEN_SIZE with the hidden states for each question in the batch
 
@@ -165,6 +180,9 @@ def question_module(question_placeholder, question_length_placeholder):
 
   # Construct vectors from indices
   question_vectors = convert_to_vectors(question_placeholder, MAX_QUESTION_LENGTH, BATCH_SIZE)
+
+  # Add dropout to word vectors
+  question_vectors = tf.nn.dropout(question_vectors, dropout_placeholder)
 
   with tf.variable_scope("question"):
     outputs, state = RNN(question_vectors, question_length_placeholder, HIDDEN_SIZE, WORD_VECTOR_LENGTH,
@@ -209,6 +227,7 @@ def episodic_memory_module(sentence_states, number_of_sentences, question_state)
 
     # Loop over the sentences for each episode to compute the gates
     for j in range(MAX_INPUT_SENTENCES):
+
       # Set scope for all these operations to be the episode
       with tf.variable_scope("episode", reuse=True if (j > 0 or i > 0) else None):
         W_1 = tf.get_variable("W_1", shape=(7 * HIDDEN_SIZE, ATTENTION_GATE_HIDDEN_SIZE))
@@ -289,13 +308,15 @@ def episodic_memory_module(sentence_states, number_of_sentences, question_state)
   return m
 
 
-def answer_module(episodic_memory_states, dimension_of_answers):
+def answer_module(episodic_memory_states, dimension_of_answers, dropout_placeholder):
   """
   Returns a matrix of size BATCH_SIZE x NUM_CLASSES with the unscaled probabilities for each class
 
   episodic_memory_state: Matrix of BATCH_SIZE x HIDDEN_SIZE with the memory state for each input and question in the batch
 
   """
+
+  episodic_memory_states = tf.nn.dropout(episodic_memory_states, dropout_placeholder)
 
   with tf.variable_scope("answer_module"):
     W_out = tf.get_variable("W_out", shape=(HIDDEN_SIZE, dimension_of_answers))
@@ -361,9 +382,10 @@ def run_dmn():
 
   # Create L tensor from embedding_mat
   with tf.variable_scope("Embedding") as scope:
+
     # L = tf.get_variable("L", shape=np.shape(embedding_mat), initializer=initialize_word_vectors)
     L = tf.get_variable("L", shape=np.shape(embedding_mat),
-                        initializer=tf.random_uniform_initializer(minval=-np.sqrt(3), maxval=np.sqrt(3)))
+                       initializer=tf.random_uniform_initializer(minval=-np.sqrt(3), maxval=np.sqrt(3)))
 
   # Split data into batches
   validation_batches = batch_data(validation, BATCH_SIZE)
@@ -396,20 +418,20 @@ def run_dmn():
 
   # Add placeholders
   input_placeholder, input_length_placeholder, end_of_sentences_placeholder, num_sentences_placeholder, question_placeholder, \
-  question_length_placeholder, labels_placeholder = add_placeholders()
+  question_length_placeholder, labels_placeholder, dropout_placeholder = add_placeholders()
 
   # Input module
   sentence_states, all_outputs = input_module(input_placeholder, input_length_placeholder,
-                                              end_of_sentences_placeholder)
+                                              end_of_sentences_placeholder, dropout_placeholder)
 
   # Question module
-  question_state = question_module(question_placeholder, question_length_placeholder)
+  question_state = question_module(question_placeholder, question_length_placeholder, dropout_placeholder)
 
   # Episodic memory module
   episodic_memory_state = episodic_memory_module(sentence_states, num_sentences_placeholder, question_state)
 
   # Answer module
-  projections = answer_module(episodic_memory_state, number_of_answers)
+  projections = answer_module(episodic_memory_state, number_of_answers, dropout_placeholder)
 
   prediction_probs = tf.nn.softmax(projections)
 
@@ -462,7 +484,8 @@ def run_dmn():
                      num_sentences_placeholder: train_batched_num_sentences[i],
                      question_placeholder: train_batched_question_vecs[i],
                      question_length_placeholder: train_batched_question_lengths[i],
-                     labels_placeholder: train_batched_answers[i]})
+                     labels_placeholder: train_batched_answers[i], 
+                     dropout_placeholder: DROPOUT})
 
         # end_of_first_sentence_first_batch = train_batched_end_of_sentences[i][0,0]
         #
@@ -500,7 +523,8 @@ def run_dmn():
                      num_sentences_placeholder: val_batched_num_sentences[i],
                      question_placeholder: val_batched_question_vecs[i],
                      question_length_placeholder: val_batched_question_lengths[i],
-                     labels_placeholder: val_batched_answers[i]})
+                     labels_placeholder: val_batched_answers[i], 
+                     dropout_placeholder: 1.0})
 
         total_validation_loss += loss
 
@@ -548,7 +572,8 @@ def run_dmn():
                    num_sentences_placeholder: test_batched_num_sentences[i],
                    question_placeholder: test_batched_question_vecs[i],
                    question_length_placeholder: test_batched_question_lengths[i],
-                   labels_placeholder: test_batched_answers[i]})
+                   labels_placeholder: test_batched_answers[i], 
+                   dropout_placeholder: 1.0})
 
       total_test_loss += loss
 
