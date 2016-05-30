@@ -6,3 +6,4 @@ data/glove/
 data/glove.6B.zip*
 data/glove.6B/*
 flask/
+python/flask
