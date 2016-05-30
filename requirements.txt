@@ -1,2 +1,14 @@
 numpy
 https://storage.googleapis.com/tensorflow/mac/tensorflow-0.8.0-py2-none-any.whl
+flask
+flask-login
+flask-openid
+flask-mail
+flask-sqlalchemy
+sqlalchemy-migrate
+flask-whooshalchemy
+flask-wtf
+flask-babel
+guess_language
+flipflop
+coverage
