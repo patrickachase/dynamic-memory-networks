@@ -3,13 +3,13 @@ import argparse
 
 LEARNING_RATE = 0.001
 REG = 0.0
-MAX_EPOCHS = 250
-DROPOUT = 0.2
+MAX_EPOCHS = 256
+DROPOUT = 0.9
 OUT_DIR = './outputs'
 TASK = 6
-HIDDEN_SIZE = 50
+HIDDEN_SIZE = 80
 UPDATE_LENGTH = 1
-BATCH_SIZE = 100
+BATCH_SIZE = 128
 
 def parse_args():
   """
