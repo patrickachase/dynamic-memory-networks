@@ -23,7 +23,6 @@ from params import parse_args
 params = parse_args()
 
 WORD_VECTOR_LENGTH = 50
-NUM_CLASSES = 2
 MAX_EPISODES = 3
 MAX_INPUT_SENTENCES = 40
 EARLY_STOPPING = 2
