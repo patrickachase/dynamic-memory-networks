@@ -30,7 +30,7 @@ MAX_QUESTION_LENGTH = 20
 
 LEARNING_RATE = params['LEARNING_RATE']
 HIDDEN_SIZE = params['HIDDEN_SIZE']
-ATTENTION_GATE_HIDDEN_SIZE = params['ATTENTION_GATE_HIDDEN_SIZE']
+ATTENTION_GATE_HIDDEN_SIZE = params['HIDDEN_SIZE']
 MAX_EPOCHS = params['MAX_EPOCHS']
 REG = params['REG']
 DROPOUT = params['DROPOUT']
@@ -39,7 +39,7 @@ TASK = params['TASK']
 UPDATE_LENGTH = params['UPDATE_LENGTH']
 BATCH_SIZE = params['BATCH_SIZE']
 
-OUTFILE_STRING = 'lr_ ' + str(LEARNING_RATE) + '_r_' + str(REG) + '_hs_' + str(HIDDEN_SIZE) + '_e_' + str(MAX_EPOCHS) + 't' + str(TASK)
+OUTFILE_STRING = 'lr_ ' + str(LEARNING_RATE) + '_r_' + str(REG) + '_hs_' + str(HIDDEN_SIZE) + '_e_' + str(MAX_EPOCHS) + '_d_' + str(DROPOUT) + '_t_' + str(TASK) + '_bs_' + str(BATCH_SIZE)
 
 
 #### END MODEL PARAMETERS ####
@@ -586,6 +586,10 @@ def run_dmn():
     print '=-=' * 5
     print 'Test accuracy: {}'.format(test_accuracy)
     print '=-=' * 5
+
+    f = open(outfile, "a")
+    f.write('test_acc, ' + str(test_accuracy) + '\n')
+    f.close()
 
 
 if __name__ == "__main__":
