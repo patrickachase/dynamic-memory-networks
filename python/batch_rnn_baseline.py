@@ -11,8 +11,6 @@ from tensorflow.models.rnn import rnn, rnn_cell
 from get_babi_data import get_task_6_train
 from get_babi_data import get_task_6_test
 from get_glove import load_glove_vectors
-from get_babi_data import get_task_1_train
-from get_babi_data import get_task_1_test
 from tensorflow.python.ops.seq2seq import sequence_loss
 from format_data import split_training_data, format_data, batch_data, convert_to_vectors, get_word_vector
 from random import shuffle
