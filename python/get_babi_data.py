@@ -1,4 +1,5 @@
 import re
+from itertools import groupby
 
 DATAPATH = '../data/babi/tasks_1-20_v1-2/en-10k/'
 # Functions to load babi dataset
@@ -88,6 +89,25 @@ def get_babi_dataset(path):
             story.append(sent)
 
     return [(flatten(_story), _question, answer) for _story, _question, answer in data]
+
+def remove_long_sentences(data, max_len):
+    clean_data = []
+
+    for vec in data:
+        sentence_vec = [list(group) for k, group in groupby(vec[0], lambda x: x == ".") if not k]
+        num_sentences = len(sentence_vec)
+
+        if num_sentences > max_len:
+            sentence_vec = sentence_vec[-max_len:]
+
+        reconstructed_vec = []
+        for sentence in sentence_vec:
+            reconstructed_vec += sentence
+            reconstructed_vec.append(unicode('.'))
+
+        clean_data.append((reconstructed_vec, vec[1], vec[2]))
+
+    return clean_data
 
 
 def tokenize(sentence):

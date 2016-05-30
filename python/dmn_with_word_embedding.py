@@ -362,6 +362,7 @@ def run_dmn():
 
   # Get train dataset for task
   train_total = get_task_train(TASK)
+  train_total = remove_long_sentences(train_total, MAX_INPUT_SENTENCES)
 
   train, validation = split_training_data(train_total)
 
@@ -372,6 +373,7 @@ def run_dmn():
 
   # Get test dataset for task
   test = get_task_test(TASK)
+  test = remove_long_sentences(test, MAX_INPUT_SENTENCES)
 
   # Get word to glove vectors dictionary
   word_to_index, embedding_mat = load_glove_embedding()

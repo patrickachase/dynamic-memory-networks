@@ -9,7 +9,7 @@ OUT_DIR = './outputs'
 TASK = 6
 HIDDEN_SIZE = 80
 UPDATE_LENGTH = 1
-BATCH_SIZE = 128
+BATCH_SIZE = 100
 
 def parse_args():
   """
