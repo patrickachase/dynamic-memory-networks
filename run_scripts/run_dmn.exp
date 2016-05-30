@@ -29,7 +29,7 @@ send "cd cs224d/dynamic-memory-networks/python\r"
 
 set timeout -1
 expect "*>"
-send "python dynamic_memory_network.py $parameters\r"
+send "python dmn_with_word_embedding.py $parameters\r"
 
 expect "*>"
 send_user "Exiting corn$servernumber.stanford.edu"

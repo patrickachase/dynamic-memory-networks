@@ -25,18 +25,21 @@ def get_server_number(counter):
 # Keeps track of which corn server to use.
 counter = 0
 
-# Generate random parameters in range
-lrs = np.random.uniform(1e-4,1e-1,3)
-regs = np.random.uniform(1e-6,1e-1,3)
-#dropout_rates = np.random.uniform(0,0.3,1)
+tasks = [6, 1, 2, 3]
 
-for lr in lrs:
-  for reg in regs:
+for task in tasks:
+  for i in xrange(5):
+    # Generate random parameters in range
+    reg = 0
+    if i > 0:
+      reg = np.random.uniform(1e-6,1e-4,1)[0]
+
     # These parameters will be passed to dynamic_memory_network.py.
-    parameters = "-lr " + str(lr) + " -reg " + str(reg)
+    parameters = " -reg " + str(reg) + " -task " + str(task)
     command = "/usr/bin/expect -f run_dmn.exp %s '%s' &" \
       % (get_server_number(counter), parameters)
     print 'Executing command:', command
     os.system(command)
-  counter += 1
-  time.sleep(5)
+
+    counter += 1
+    time.sleep(5)

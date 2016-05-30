@@ -26,17 +26,16 @@ def get_server_number(counter):
 counter = 0
 
 # Generate random parameters in range
-lrs = np.random.uniform(1e-4,1e-1,3)
-regs = np.random.uniform(1e-6,1e-1,3)
-#dropout_rates = np.random.uniform(0,0.3,1)
+regs = np.random.uniform(1e-6,1e-4,5)
+np.append(regs, [0])
 
-for lr in lrs:
-  for reg in regs:
-    # These parameters will be passed to batch_rnn_baseline.py.
-    parameters = "-lr " + str(lr) + " -reg " + str(reg)
-    command = "/usr/bin/expect -f run_rnn.exp %s '%s' &" \
-      % (get_server_number(counter), parameters)
-    print 'Executing command:', command
-    os.system(command)
+for reg in regs:
+  # These parameters will be passed to batch_rnn_baseline.py.
+  parameters = " -reg " + str(reg)
+  command = "/usr/bin/expect -f run_rnn.exp %s '%s' &" \
+    % (get_server_number(counter), parameters)
+  print 'Executing command:', command
+  os.system(command)
+
   counter += 1
   time.sleep(5)
