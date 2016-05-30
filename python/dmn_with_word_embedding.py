@@ -39,7 +39,8 @@ TASK = params['TASK']
 UPDATE_LENGTH = params['UPDATE_LENGTH']
 BATCH_SIZE = params['BATCH_SIZE']
 
-OUTFILE_STRING = 'lr_ ' + str(LEARNING_RATE) + '_r_' + str(REG) + '_hs_' + str(HIDDEN_SIZE) + '_e_' + str(MAX_EPOCHS) + '_d_' + str(DROPOUT) + '_t_' + str(TASK) + '_bs_' + str(BATCH_SIZE)
+OUTFILE_STRING = 'lr_' + str(LEARNING_RATE) + '_r_' + str(REG) + '_hs_' + str(HIDDEN_SIZE) + '_e_' + str(
+  MAX_EPOCHS) + '_d_' + str(DROPOUT) + '_t_' + str(TASK) + '_bs_' + str(BATCH_SIZE)
 
 
 #### END MODEL PARAMETERS ####
@@ -77,7 +78,7 @@ def add_placeholders():
   question_placeholder = tf.placeholder(tf.int32, shape=[MAX_QUESTION_LENGTH, BATCH_SIZE])
   question_length_placeholder = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
   labels_placeholder = tf.placeholder(tf.int32, shape=[BATCH_SIZE])
-  dropout_placeholder = tf.placeholder(tf.float32, shape = ())
+  dropout_placeholder = tf.placeholder(tf.float32, shape=())
 
   return input_placeholder, input_length_placeholder, end_of_sentences_placeholder, num_sentences_placeholder, \
          question_placeholder, question_length_placeholder, labels_placeholder, dropout_placeholder
@@ -217,6 +218,8 @@ def episodic_memory_module(sentence_states, number_of_sentences, question_state)
   # Initialize first memory state to be the question state
   m = q
 
+  gates_for_episodes = []
+
   # There is an episode e and a previous memory state m_prev for each pass through the data
   for i in range(MAX_EPISODES):
 
@@ -226,13 +229,13 @@ def episodic_memory_module(sentence_states, number_of_sentences, question_state)
 
     # Loop over the sentences for each episode to compute the gates
     for j in range(MAX_INPUT_SENTENCES):
-
       # Set scope for all these operations to be the episode
       with tf.variable_scope("episode", reuse=True if (j > 0 or i > 0) else None):
-        W_1 = tf.get_variable("W_1", shape=(7 * HIDDEN_SIZE, ATTENTION_GATE_HIDDEN_SIZE), initializer = xavier_weight_init())
-        b_1 = tf.get_variable("b_1", shape=(1, ATTENTION_GATE_HIDDEN_SIZE), initializer = tf.constant_initializer(0.0))
-        W_2 = tf.get_variable("W_2", shape=(ATTENTION_GATE_HIDDEN_SIZE, 1), initializer = xavier_weight_init())
-        b_2 = tf.get_variable("b_2", shape=(1, 1), initializer = tf.constant_initializer(0.0))
+        W_1 = tf.get_variable("W_1", shape=(7 * HIDDEN_SIZE, ATTENTION_GATE_HIDDEN_SIZE),
+                              initializer=xavier_weight_init())
+        b_1 = tf.get_variable("b_1", shape=(1, ATTENTION_GATE_HIDDEN_SIZE), initializer=tf.constant_initializer(0.0))
+        W_2 = tf.get_variable("W_2", shape=(ATTENTION_GATE_HIDDEN_SIZE, 1), initializer=xavier_weight_init())
+        b_2 = tf.get_variable("b_2", shape=(1, 1), initializer=tf.constant_initializer(0.0))
 
         c_t = sentence_states[j]
 
@@ -258,6 +261,8 @@ def episodic_memory_module(sentence_states, number_of_sentences, question_state)
     # Concatenate the gates together to perform softmax
     # Gates is now a matrix of BATCH_SIZE x MAX_INPUT_SENTENCES with the gates for each sentence in the batch for this episode
     gates = tf.nn.softmax(tf.concat(1, gate_projections))
+
+    gates_for_episodes.append(gates)
 
     gates_per_sentence = tf.split(1, MAX_INPUT_SENTENCES, gates)
 
@@ -303,8 +308,8 @@ def episodic_memory_module(sentence_states, number_of_sentences, question_state)
       # TODO experiement with different project here (RELU)
       output, m = gru_cell_memory(e, m_prev)
 
-  # Return final memory state
-  return m
+  # Return final memory state and gates for each episode
+  return m, gates_for_episodes
 
 
 def answer_module(episodic_memory_states, dimension_of_answers, dropout_placeholder):
@@ -318,8 +323,8 @@ def answer_module(episodic_memory_states, dimension_of_answers, dropout_placehol
   episodic_memory_states = tf.nn.dropout(episodic_memory_states, dropout_placeholder)
 
   with tf.variable_scope("answer_module"):
-    W_out = tf.get_variable("W_out", shape=(HIDDEN_SIZE, dimension_of_answers), initializer = xavier_weight_init())
-    b_out = tf.get_variable("b_out", shape=(1, dimension_of_answers), initializer = tf.constant_initializer(0.0))
+    W_out = tf.get_variable("W_out", shape=(HIDDEN_SIZE, dimension_of_answers), initializer=xavier_weight_init())
+    b_out = tf.get_variable("b_out", shape=(1, dimension_of_answers), initializer=tf.constant_initializer(0.0))
 
   projections = tf.matmul(episodic_memory_states, W_out) + b_out
 
@@ -386,7 +391,7 @@ def run_dmn():
 
     # L = tf.get_variable("L", shape=np.shape(embedding_mat), initializer=initialize_word_vectors)
     L = tf.get_variable("L", shape=np.shape(embedding_mat),
-                       initializer=tf.random_uniform_initializer(minval=-np.sqrt(3), maxval=np.sqrt(3)))
+                        initializer=tf.random_uniform_initializer(minval=-np.sqrt(3), maxval=np.sqrt(3)))
 
   # Split data into batches
   validation_batches = batch_data(validation, BATCH_SIZE)
@@ -429,7 +434,8 @@ def run_dmn():
   question_state = question_module(question_placeholder, question_length_placeholder, dropout_placeholder)
 
   # Episodic memory module
-  episodic_memory_state = episodic_memory_module(sentence_states, num_sentences_placeholder, question_state)
+  episodic_memory_state, gates_for_episodes = episodic_memory_module(sentence_states, num_sentences_placeholder,
+                                                                     question_state)
 
   # Answer module
   projections = answer_module(episodic_memory_state, number_of_answers, dropout_placeholder)
@@ -474,28 +480,24 @@ def run_dmn():
       # Compute average loss on training data
       for i in range(len(train_batches)):
 
-        # print "Train batch ", train_batches[i]
+        # print "Train batch ", train_batches[i][0]
         # print "End of sentences ", train_batched_end_of_sentences[i]
 
-        loss, _, batch_prediction_probs, input_outputs, sentence_states_out = sess.run(
-          [cost, optimizer, prediction_probs, all_outputs, sentence_states],
+        loss, _, batch_prediction_probs, input_outputs, sentence_states_out, episode_1_gates, episode_2_gates, episode_3_gates = sess.run(
+          [cost, optimizer, prediction_probs, all_outputs, sentence_states, gates_for_episodes[0],
+           gates_for_episodes[1], gates_for_episodes[2]],
           feed_dict={input_placeholder: train_batched_input_vecs[i],
                      input_length_placeholder: train_batched_input_lengths[i],
                      end_of_sentences_placeholder: train_batched_end_of_sentences[i],
                      num_sentences_placeholder: train_batched_num_sentences[i],
                      question_placeholder: train_batched_question_vecs[i],
                      question_length_placeholder: train_batched_question_lengths[i],
-                     labels_placeholder: train_batched_answers[i], 
+                     labels_placeholder: train_batched_answers[i],
                      dropout_placeholder: DROPOUT})
 
-        # end_of_first_sentence_first_batch = train_batched_end_of_sentences[i][0,0]
-        #
-        # print "Index end of first sentence:", end_of_first_sentence_first_batch
-        #
-        # print "Shape input outputs", np.shape(input_outputs)
-        # print "States at end of first sentence for first element of batch", input_outputs[end_of_first_sentence_first_batch, 0, :]
-        # print "States at end of first sentence for first element of batch {}".format(sentence_states[0,0:])
-        # print "Train batch number of sentences:", train_batched_num_sentences[i]
+        # print episode_1_gates[0]
+        # print episode_2_gates[0]
+        # print episode_3_gates[0]
 
         total_training_loss += loss
 
@@ -524,7 +526,7 @@ def run_dmn():
                      num_sentences_placeholder: val_batched_num_sentences[i],
                      question_placeholder: val_batched_question_vecs[i],
                      question_length_placeholder: val_batched_question_lengths[i],
-                     labels_placeholder: val_batched_answers[i], 
+                     labels_placeholder: val_batched_answers[i],
                      dropout_placeholder: 1.0})
 
         total_validation_loss += loss
@@ -545,7 +547,7 @@ def run_dmn():
         best_validation_accuracy = validation_accuracy
         best_val_epoch = epoch
         saver.save(sess, '../data/weights/dmn_' + OUTFILE_STRING + '.weights')
-        print "Weights saved"
+        print "Weights saved to " + '../data/weights/dmn_' + OUTFILE_STRING + '.weights'
 
       print 'Total time: {}'.format(time.time() - start)
 
@@ -573,7 +575,7 @@ def run_dmn():
                    num_sentences_placeholder: test_batched_num_sentences[i],
                    question_placeholder: test_batched_question_vecs[i],
                    question_length_placeholder: test_batched_question_lengths[i],
-                   labels_placeholder: test_batched_answers[i], 
+                   labels_placeholder: test_batched_answers[i],
                    dropout_placeholder: 1.0})
 
       total_test_loss += loss

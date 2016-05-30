@@ -56,7 +56,7 @@ sentence_states, all_outputs = input_module(input_placeholder, input_length_plac
 question_state = question_module(question_placeholder, question_length_placeholder, dropout_placeholder)
 
 # Episodic memory module
-episodic_memory_state = episodic_memory_module(sentence_states, num_sentences_placeholder, question_state)
+episodic_memory_state, gates_for_episodes = episodic_memory_module(sentence_states, num_sentences_placeholder, question_state)
 
 # Answer module
 projections = answer_module(episodic_memory_state, number_of_answers, dropout_placeholder)
@@ -74,6 +74,9 @@ saver.restore(session, PATH_TO_MODEL)
 #   saver.restore(sess, PATH_TO_MODEL)
 
 def run_dmn(input, question):
+
+  if input == None or question == None:
+    return None, None, None, None, None
 
   input_split = re.findall(r"[\w']+|[.,!?;]", input)
   print input_split
@@ -105,8 +108,9 @@ def run_dmn(input, question):
   print "Running DMN"
 
   # Run dmn
-  probs = session.run(
-    [prediction_probs],
+  probs, episode_1_gates, episode_2_gates, episode_3_gates = session.run(
+    [prediction_probs, gates_for_episodes[0],
+     gates_for_episodes[1], gates_for_episodes[2]],
     feed_dict={input_placeholder: val_batched_input_vecs[0],
                input_length_placeholder: val_batched_input_lengths[0],
                end_of_sentences_placeholder: val_batched_end_of_sentences[0],
@@ -126,7 +130,28 @@ def run_dmn(input, question):
 
   print "Answer is", answer
 
-  return answer, None
+  # Get sentences
+  sentences = re.split(r"[.]+", input)
+  sentences.pop()
+  print "Sentences", sentences
+
+  num_sentences = len(sentences)
+  print num_sentences
+
+  print episode_1_gates[0]
+  print episode_2_gates[0]
+  print episode_3_gates[0]
+
+  # Get gates
+  gates_1 = episode_1_gates[0][:num_sentences]
+  gates_2 = episode_2_gates[0][:num_sentences]
+  gates_3 = episode_3_gates[0][:num_sentences]
+
+  print gates_1
+  print gates_2
+  print gates_3
+
+  return answer, sentences, gates_1, gates_2, gates_3
 
 
 @app.route('/')
@@ -135,10 +160,13 @@ def index():
   input = request.args.get('input')
   question = request.args.get('question')
 
-  answer, gates = run_dmn(input, question)
+  answer, sentences, episode_1_gates, episode_2_gates, episode_3_gates = run_dmn(input, question)
 
   return render_template("dmn_demo.html",
                          input=input,
                          question=question,
                          answer=answer,
-                         gates=gates)
+                         sentences=sentences,
+                         episode_1_gates=episode_1_gates,
+                         episode_2_gates=episode_2_gates,
+                         episode_3_gates=episode_3_gates)

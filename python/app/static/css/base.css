@@ -16,8 +16,8 @@
     padding-bottom: 1px;
     padding-top: 5px;
     border-radius: 5px;
-    background: lightgray;
-    background: #c5daf7;
+    /*background: #c5daf7;*/
+    background: #e2ecff;
 }
 
 .input-and-question .input .form-control {
@@ -26,4 +26,13 @@
 
 .input-and-question .question .form-control {
     width: 50%;
+}
+
+.answer {
+    margin: 10px;
+    padding-left: 10px;
+    padding-bottom: 1px;
+    padding-top: 5px;
+    border-radius: 5px;
+    background: #ebfbeb;;
 }

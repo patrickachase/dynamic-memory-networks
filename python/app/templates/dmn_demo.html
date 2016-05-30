@@ -27,9 +27,37 @@
 </div>
 
 {% if answer %}
-<div>
-    {{answer}}
+<div class="answer">
+    Answer:
+    <p><b>{{answer}}</b>
 </div>
+
+
+<div class="container">
+    <h3>Episodes</h3>
+    <table class="table">
+        <thead>
+        <tr>
+            <th>Sentence</th>
+            <th>Episode 1</th>
+            <th>Episode 2</th>
+            <th>Episode 3</th>
+        </tr>
+        </thead>
+        <tbody>
+
+        {% for sentence in sentences %}
+            <tr>
+                <td>{{sentence}}</td>
+                <td>{{episode_1_gates[loop.index - 1]}}</td>
+                <td>{{episode_2_gates[loop.index - 1]}}</td>
+                <td>{{episode_3_gates[loop.index - 1]}}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
 {% endif %}
 
 {% endblock %}
