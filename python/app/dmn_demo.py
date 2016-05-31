@@ -126,7 +126,7 @@ def run_dmn(input, question):
   index_answer = np.argmax(answer_probs)
 
   # Convert answer into a word
-  answer = index_to_answer[index_answer]
+  answer = index_to_answer[index_answer].title()
 
   print "Answer is", answer
 

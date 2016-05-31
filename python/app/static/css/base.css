@@ -37,3 +37,7 @@
     border-radius: 5px;
     background: #ebfbeb;
 }
+
+.answer .answer_text {
+    font-size: 150%;
+}
