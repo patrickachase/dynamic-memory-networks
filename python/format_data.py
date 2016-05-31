@@ -415,8 +415,9 @@ def get_word_index(word, word_to_index):
 
   """
 
-  if word in word_to_index:
-    word_index = word_to_index[word]
+  if word.lower() in word_to_index:
+    word_index = word_to_index[word.lower()]
   else:
+    print word + " not found in word index. Using <unk> token."
     word_index = word_to_index['<unk>']
   return word_index
