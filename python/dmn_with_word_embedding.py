@@ -553,6 +553,7 @@ def run_dmn():
 
       outfile = './outputs/dmn/' + OUTFILE_STRING + '.txt'
       f = open(outfile, "a")
+      f.write('epoch, ' + str(epoch) + '\n')
       f.write('train_acc, ' + str(training_accuracy) + '\n')
       f.write('train_loss, ' + str(average_training_loss) + '\n')
       f.write('val_acc, ' + str(validation_accuracy) + '\n')
