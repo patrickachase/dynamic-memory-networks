@@ -15,22 +15,32 @@ from get_babi_data import remove_long_sentences, get_task_train, get_task_test
 
 from get_glove import load_glove_embedding
 
-PATH_TO_MODEL = "/Users/patrickchase/Documents/CS224D/finalProject/dynamic-memory-networks/data/weights/dmn_lr_0.001_r_0.0_hs_80_e_1_d_0.9_t_1_bs_100.weights"
+# Good task 1 path
+PATH_TO_MODEL = "/Users/patrickchase/Documents/CS224D/finalProject/dynamic-memory-networks/data/weights/dmn_lr_0.001_r_0.001_hs_80_e_150_d_0.9_t_2_bs_100.weights"
 MAX_INPUT_SENTENCES = 70
-TASK = 1
+TASK = 2
 BATCH_SIZE = 100
 MAX_INPUT_LENGTH = 200
 MAX_QUESTION_LENGTH = 20
 
+print "Task", TASK
+
 # Get train dataset for task
 train_total = get_task_train(TASK)
+train_total = remove_long_sentences(train_total, MAX_INPUT_SENTENCES)
+
+train, validation = split_training_data(train_total)
 
 # Get all tokens from answers in training
 answer_to_index = answer_tokens_to_index(train_total)
 
-index_to_answer = inv_map = {v: k for k, v in answer_to_index.items()}
+print answer_to_index
 
 number_of_answers = len(answer_to_index)
+
+print number_of_answers
+
+index_to_answer = inv_map = {v: k for k, v in answer_to_index.items()}
 
 # Get word to glove vectors dictionary
 word_to_index, embedding_mat = load_glove_embedding()
@@ -126,7 +136,7 @@ def run_dmn(input, question):
   index_answer = np.argmax(answer_probs)
 
   # Convert answer into a word
-  answer = index_to_answer[index_answer].title()
+  answer = index_to_answer[index_answer]
 
   print "Answer is", answer
 

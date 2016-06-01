@@ -365,6 +365,8 @@ def run_dmn():
 
   """
 
+  print "Task", TASK
+
   # Get train dataset for task
   train_total = get_task_train(TASK)
   train_total = remove_long_sentences(train_total, MAX_INPUT_SENTENCES)
@@ -374,7 +376,11 @@ def run_dmn():
   # Get all tokens from answers in training
   answer_to_index = answer_tokens_to_index(train_total)
 
+  print answer_to_index
+
   number_of_answers = len(answer_to_index)
+
+  print number_of_answers
 
   # Get test dataset for task
   test = get_task_test(TASK)
@@ -543,7 +549,7 @@ def run_dmn():
       print 'Validation loss: {}'.format(average_validation_loss)
       print 'Validation accuracy: {}'.format(validation_accuracy)
 
-      if validation_accuracy > best_validation_accuracy:
+      if validation_accuracy >= best_validation_accuracy:
         best_validation_accuracy = validation_accuracy
         best_val_epoch = epoch
         saver.save(sess, '../data/weights/dmn_' + OUTFILE_STRING + '.weights')
