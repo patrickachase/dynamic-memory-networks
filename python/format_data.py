@@ -371,7 +371,12 @@ def convert_to_indices(batched_data, word_to_index, answer_to_index, max_input_l
       # Add question length
       batch_question_lengths[i] = len(question)
 
-      batch_answers_indices[i] = answer_to_index[answer]
+      if answer in answer_to_index:
+        batch_answers_indices[i] = answer_to_index[answer]
+      else:
+        print answer, " is not in answer vocab..."
+        batch_answers_indices[i] = answer_to_index['<unk>']
+
 
     batched_input_vecs.append(batch_input_indices)
     batched_input_lengths.append(batch_input_lengths)
@@ -421,3 +426,37 @@ def get_word_index(word, word_to_index):
     print word + " not found in word index. Using <unk> token."
     word_index = word_to_index['<unk>']
   return word_index
+
+
+def create_word_to_index_from_vocab(data):
+  """
+  Creates a word_to_index dict from all words that appear at training time.
+
+  """
+
+  vocab_size = 0
+  word_to_index = {}
+  for example in data:
+    for text in example[0], example[1]:
+      for word in text:
+        if word not in word_to_index:
+          word_to_index[word] = vocab_size
+          vocab_size += 1
+    if example[2] not in word_to_index:
+      word_to_index[example[2]] = vocab_size
+      vocab_size += 1
+
+  word_to_index['<unk>'] = vocab_size
+  vocab_size += 1
+
+  return word_to_index, vocab_size
+
+
+
+
+
+
+
+
+
+
