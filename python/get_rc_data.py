@@ -24,6 +24,9 @@ def get_rc_dataset(path):
   """
   data = []
   for question_file in os.listdir(path):
+    if question_file[0] == '.':
+      print "skipping ", question_file
+      continue
     context, question, answer = parse_file(path + '/' + question_file)
     data.append((context, question, answer))
 
