@@ -13,3 +13,7 @@ cd python
 deactivate                       # Exit the virtual environment
 ```
 
+## Screenshot of Demo
+
+![Alt text](./demo.png?raw=true "Title")
+
